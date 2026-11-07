@@ -1,21 +1,35 @@
-// Weapons: sand gun, water gun and wind gust.
+// Weapons: sand clump launcher, water stream and wind blast.
+//
+// Sand and wind fire projectiles (SW.Shots). A sand clump bursts into a pile of
+// grains where it lands; a direct hit dumps the pile on the target and stuns
+// them. A wind blast explodes on impact, blowing a crater in dry sand (mud
+// resists it) and knocking back anyone nearby.
 (function () {
   'use strict';
   const SW = window.SW;
   const { EMPTY, WALL, SAND, MUD, WATER, AIR } = SW.T;
 
-  SW.SHOT_SPEED = 5.2;
+  SW.SHOT_SPEED = 5.2;           // sand clump launch speed (uses particle gravity SW.PG)
+  SW.WATER_SPEED = 5.2;
+  SW.BLAST_SPEED = 6.5;
+  SW.BLAST_G = 0.05;
+
+  const CLUMP = 1, BLAST = 2;
+  const CLUMP_GRAINS = 80;
+  const CLUMP_COOLDOWN = 22;
+  const BLAST_COST = 25;
+  const BLAST_COOLDOWN = 32;
+  const BLAST_LIFE = 55;         // frames before an airborne blast pops by itself
+  const BLAST_RADIUS = 16;
+  const STUN_CLUMP = 60;
+  const CLUMP_DRIVE = 4;          // rows a direct hit drives the target into loose ground
+  const STUN_BLAST = 35;
 
   SW.WEAPONS = [
-    { id: 'sand', name: 'Sand', key: '1', max: 200, regen: 0.9, color: '#e8c27a' },
-    { id: 'water', name: 'Water', key: '2', max: 100, regen: 0.32, color: '#4f8fe8' },
-    { id: 'wind', name: 'Wind', key: '3', max: 100, regen: 0.4, color: '#d8f1ff' },
+    { id: 'sand', name: 'Sand', key: '1', max: 320, regen: 1.3, cost: CLUMP_GRAINS, color: '#e8c27a' },
+    { id: 'water', name: 'Water', key: '2', max: 100, regen: 0.32, cost: 1, color: '#4f8fe8' },
+    { id: 'wind', name: 'Wind', key: '3', max: 100, regen: 0.35, cost: BLAST_COST, color: '#d8f1ff' },
   ];
-
-  const WIND_COST = 1.4;
-  const WIND_RANGE = 56;
-  const WIND_HALF = 0.4;
-  const WIND_RAYS = 15;
 
   SW.muzzle = function (c) {
     return {
@@ -25,99 +39,165 @@
   };
 
   SW.fire = function (game, c) {
-    if (!c.alive || !c.firing) return;
+    if (!c.alive || !c.firing || c.cool > 0) return;
     const w = c.weapon;
-    if (w === 2) { gust(game, c); return; }
     const m = SW.muzzle(c);
-    const type = w === 0 ? SAND : WATER;
-    const spread = w === 0 ? 0.09 : 0.06;
-    const per = w === 0 ? 3 : 2;
-    for (let k = 0; k < per; k++) {
-      if (c.ammo[w] < 1) break;
-      c.ammo[w] -= 1;
-      const a = c.aim + (Math.random() - 0.5) * spread;
-      const sp = SW.SHOT_SPEED * (0.93 + Math.random() * 0.12);
-      game.particles.spawn(m.x, m.y, Math.cos(a) * sp + c.vx * 0.4, Math.sin(a) * sp, type, c.id);
+    if (w === 0) {
+      if (c.ammo[0] < CLUMP_GRAINS) return;
+      c.ammo[0] -= CLUMP_GRAINS;
+      c.cool = CLUMP_COOLDOWN;
+      const sp = SW.SHOT_SPEED;
+      game.shots.spawn(CLUMP, m.x, m.y, Math.cos(c.aim) * sp + c.vx * 0.4, Math.sin(c.aim) * sp, c.id);
+    } else if (w === 2) {
+      if (c.ammo[2] < BLAST_COST) return;
+      c.ammo[2] -= BLAST_COST;
+      c.cool = BLAST_COOLDOWN;
+      const sp = SW.BLAST_SPEED;
+      game.shots.spawn(BLAST, m.x, m.y, Math.cos(c.aim) * sp, Math.sin(c.aim) * sp, c.id);
+    } else {
+      for (let k = 0; k < 2; k++) {
+        if (c.ammo[1] < 1) break;
+        c.ammo[1] -= 1;
+        const a = c.aim + (Math.random() - 0.5) * 0.06;
+        const sp = SW.WATER_SPEED * (0.93 + Math.random() * 0.12);
+        game.particles.spawn(m.x, m.y, Math.cos(a) * sp + c.vx * 0.4, Math.sin(a) * sp, WATER, c.id);
+      }
     }
   };
 
-  function gust(game, c) {
-    if (c.ammo[2] < WIND_COST) return;
-    c.ammo[2] -= WIND_COST;
-    const g = game.grid, P = game.particles;
-    const ox = c.x + c.w / 2, oy = c.y + c.h / 2 - 1;
+  // ---------------------------------------------------------------- shots --
 
-    for (let r = 0; r < WIND_RAYS; r++) {
-      const a = c.aim + ((r + Math.random()) / WIND_RAYS - 0.5) * 2 * WIND_HALF;
-      const dx = Math.cos(a), dy = Math.sin(a);
-      let blown = 0, reach = WIND_RANGE;
-      for (let d = 1; d < WIND_RANGE; d++) {
-        const ix = Math.floor(ox + dx * d), iy = Math.floor(oy + dy * d);
-        if (ix < 0 || ix >= g.w || iy >= g.h) break;
-        if (iy < 0) continue;
-        const i = iy * g.w + ix;
-        const t = g.type[i];
-        if (t === WALL || t === MUD) { reach = d; break; } // wet mud is too heavy to blow
-        if (t === SAND || t === WATER) {
-          const s = 1 - d / WIND_RANGE;
-          if (Math.random() < 0.25 + 0.7 * s) {
-            // Lift the grain out at the surface of its column so it sprays
-            // up and away instead of being shoved back into the dune.
-            let top = iy - 1;
-            while (top >= 0 && iy - top < 30 && g.type[top * g.w + ix] !== EMPTY) top--;
-            if (top >= 0 && g.type[top * g.w + ix] !== EMPTY) { reach = d; break; }
-            const sh = g.shade[i];
-            g.clear(i);
-            const sp = 2.2 + 4 * s + Math.random() * 0.8;
-            P.spawn(ix + 0.5, Math.max(0, top) + 0.5,
-              dx * sp + (Math.random() - 0.5) * 0.8,
-              dy * sp - 1.0 - Math.random() * 1.6,
-              t, c.id, sh);
-            if (++blown >= 2) { reach = d; break; }
-          } else { reach = d; break; }
+  class Shots {
+    constructor() { this.list = []; this.booms = []; }
+    reset() { this.list.length = 0; this.booms.length = 0; }
+
+    spawn(kind, x, y, vx, vy, owner) {
+      this.list.push({ kind, x, y, vx, vy, owner, age: 0, spin: Math.random() * 6 });
+    }
+
+    update(game) {
+      const g = game.grid;
+      this.list = this.list.filter((s) => this.step(game, g, s));
+      for (const b of this.booms) b.t++;
+      this.booms = this.booms.filter((b) => b.t < b.life);
+    }
+
+    // Returns false once the shot has hit something.
+    step(game, g, s) {
+      s.age++;
+      s.spin += 0.3;
+      s.vy += s.kind === BLAST ? SW.BLAST_G : SW.PG;
+      if (s.kind === BLAST && s.age > BLAST_LIFE) { explode(game, s.x, s.y, s.owner, null); return false; }
+      const steps = Math.max(1, Math.ceil(Math.max(Math.abs(s.vx), Math.abs(s.vy))));
+      const sx = s.vx / steps, sy = s.vy / steps;
+      for (let k = 0; k < steps; k++) {
+        const nx = s.x + sx, ny = s.y + sy;
+        const cx = Math.floor(nx), cy = Math.floor(ny);
+        if (cx < 0 || cx >= g.w || cy >= g.h) return false;
+        // Characters first: a direct hit.
+        for (const c of game.chars) {
+          if (c.id === s.owner && s.age < 25) continue;
+          if (nx >= c.x - 0.5 && nx < c.x + c.w + 0.5 && ny >= c.y - 0.5 && ny < c.y + c.h + 0.5) {
+            this.impact(game, s, nx, ny, c);
+            return false;
+          }
+        }
+        if (cy >= 0 && g.type[cy * g.w + cx] !== EMPTY) {
+          // Bombs go off inside the dune; clumps burst just in front of it.
+          if (s.kind === BLAST) this.impact(game, s, nx, ny, null);
+          else this.impact(game, s, s.x, s.y, null);
+          return false;
+        }
+        s.x = nx; s.y = ny;
+      }
+      return true;
+    }
+
+    impact(game, s, x, y, hit) {
+      if (s.kind === BLAST) { explode(game, x, y, s.owner, hit); return; }
+      const P = game.particles;
+      if (hit && hit.alive) {
+        hit.stun = Math.max(hit.stun, STUN_CLUMP);
+        hit.load += 30;
+        hit.kx += s.vx * 0.15;
+        // Pile-driver: knocked out of the air, and hammered into loose ground.
+        if (hit.vy < 1.5) hit.vy = 1.5;
+        if (hit.grounded) for (let k = 0; k < CLUMP_DRIVE; k++) if (!hit.sinkOne(game.grid)) break;
+        // The whole clump comes down on top of them.
+        for (let i = 0; i < CLUMP_GRAINS; i++) {
+          P.spawn(hit.x - 3 + Math.random() * (hit.w + 6), hit.y - 2 - Math.random() * 8,
+            (Math.random() - 0.5) * 0.6, Math.random() * 0.5, SAND, -1);
+        }
+      } else {
+        // Burst into a small splash that settles as a mound.
+        for (let i = 0; i < CLUMP_GRAINS; i++) {
+          const a = -Math.PI * Math.random();
+          const sp = 0.3 + Math.random() * 1.4;
+          P.spawn(x + (Math.random() - 0.5) * 3, y + (Math.random() - 0.5) * 3,
+            Math.cos(a) * sp + s.vx * 0.12, Math.sin(a) * sp, SAND, -1);
         }
       }
-      if (Math.random() < 0.6 && reach > 4) {
-        const d = 3 + Math.random() * (reach - 4);
-        P.spawn(ox + dx * d, oy + dy * d, dx * 3.5, dy * 3.5, AIR, c.id);
-      }
-    }
-
-    // Push other characters.
-    const ax = Math.cos(c.aim), ay = Math.sin(c.aim);
-    for (const o of game.chars) {
-      if (o === c || !o.alive) continue;
-      const ddx = o.cx - ox, ddy = o.cy - oy;
-      const dist = Math.hypot(ddx, ddy);
-      if (dist > WIND_RANGE + 3 || dist < 0.01) continue;
-      if (Math.abs(angleDiff(Math.atan2(ddy, ddx), c.aim)) > WIND_HALF + 0.2) continue;
-      if (!clearLine(g, ox, oy, o.cx, o.cy)) continue;
-      const s = 1 - dist / WIND_RANGE;
-      o.kx += ax * 0.07 * s;
-      o.vy += ay * 0.08 * s - (o.grounded ? 0.03 * s : 0);
-    }
-
-    // Push airborne grains too.
-    for (let i = 0; i < P.n; i++) {
-      const t = P.type[i];
-      if (t !== SAND && t !== WATER) continue;
-      const ddx = P.x[i] - ox, ddy = P.y[i] - oy;
-      const dist = Math.hypot(ddx, ddy);
-      if (dist > WIND_RANGE || dist < 0.01) continue;
-      if (Math.abs(angleDiff(Math.atan2(ddy, ddx), c.aim)) > WIND_HALF) continue;
-      const s = 1 - dist / WIND_RANGE;
-      P.vx[i] += ax * 0.4 * s;
-      P.vy[i] += ay * 0.4 * s;
+      this.booms.push({ x, y, t: 0, life: 8, r: 6, kind: CLUMP });
     }
   }
+  SW.Shots = Shots;
 
-  function clearLine(g, x0, y0, x1, y1) {
-    const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0));
-    for (let k = 1; k < n; k++) {
-      const t = g.get(Math.floor(x0 + (x1 - x0) * k / n), Math.floor(y0 + (y1 - y0) * k / n));
-      if (t === WALL || t === MUD) return false;
+  // Wind bomb: scoop dry sand/water out of a disc and fling it up and outwards.
+  function explode(game, x, y, owner, hit) {
+    const g = game.grid, P = game.particles;
+    const R = BLAST_RADIUS;
+    const x0 = Math.max(0, Math.floor(x - R)), x1 = Math.min(g.w - 1, Math.ceil(x + R));
+    const y0 = Math.max(0, Math.floor(y - R)), y1 = Math.min(g.h - 1, Math.ceil(y + R));
+    for (let yy = y0; yy <= y1; yy++) {
+      for (let xx = x0; xx <= x1; xx++) {
+        const dx = xx + 0.5 - x, dy = yy + 0.5 - y;
+        const d = Math.hypot(dx, dy);
+        if (d > R) continue;
+        const i = yy * g.w + xx;
+        const t = g.type[i];
+        if (t !== SAND && t !== WATER) continue; // walls and wet mud hold firm
+        const s = 1 - d / R;
+        if (Math.random() > 0.45 + 0.6 * s) continue;
+        const sh = g.shade[i];
+        g.clear(i);
+        const nx = d > 0.01 ? dx / d : 0, ny = d > 0.01 ? dy / d : -1;
+        // Ejecta fan out sideways but always go up: the open side of an impact
+        // crater is the sky, so grains escape instead of re-hitting the dune.
+        const sp = 1.5 + 4 * s + Math.random();
+        const pi = P.spawn(xx + 0.5, yy + 0.5,
+          nx * sp + (Math.random() - 0.5) * 1.2,
+          Math.min(ny, 0) * sp * 0.5 - 1.8 - 3.5 * s - Math.random() * 1.5,
+          t, owner, sh);
+        if (pi >= 0) P.ghost[pi] = 4;
+      }
     }
-    return true;
+    // Shockwave on characters.
+    for (const c of game.chars) {
+      if (!c.alive) continue;
+      const dx = c.cx - x, dy = c.cy - y;
+      const d = Math.hypot(dx, dy);
+      if (d > R + 8 && c !== hit) continue;
+      const s = c === hit ? 1 : Math.max(0, 1 - d / (R + 8));
+      const mul = c.id === owner ? 0.6 : 1;
+      const nx = d > 0.01 ? dx / d : 0;
+      c.kx += nx * 1.6 * s * mul;
+      c.vy = Math.min(c.vy, c.vy - 1.8 * s * mul);
+      if (c === hit && c.id !== owner) c.stun = Math.max(c.stun, STUN_BLAST);
+    }
+    // And on grains already in the air.
+    for (let i = 0; i < P.n; i++) {
+      const dx = P.x[i] - x, dy = P.y[i] - y;
+      const d = Math.hypot(dx, dy);
+      if (d > R * 2 || d < 0.01) continue;
+      const s = 1 - d / (R * 2);
+      P.vx[i] += (dx / d) * 3 * s;
+      P.vy[i] += (dy / d) * 3 * s - s;
+    }
+    for (let k = 0; k < 24; k++) {
+      const a = Math.random() * Math.PI * 2;
+      P.spawn(x, y, Math.cos(a) * 4, Math.sin(a) * 4, AIR, owner);
+    }
+    game.shots.booms.push({ x, y, t: 0, life: 12, r: R, kind: BLAST });
   }
 
   function angleDiff(a, b) {
@@ -139,4 +219,6 @@
     else theta = Math.atan((v2 + (high ? 1 : -1) * Math.sqrt(disc)) / (g * ax));
     return X >= 0 ? -theta : theta - Math.PI;
   };
+
+  SW.SHOT = { CLUMP, BLAST };
 })();

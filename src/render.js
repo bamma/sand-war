@@ -113,6 +113,7 @@
 
       this.drawLayer(game);
       ctx.drawImage(this.layer, 0, 0, this.gw * S, this.gh * S);
+      this.drawShots(game);
 
       this.drawHud(game);
     }
@@ -205,6 +206,48 @@
       ctx.restore();
     }
 
+    drawShots(game) {
+      const ctx = this.ctx, S = this.S;
+      for (const s of game.shots.list) {
+        const x = s.x * S, y = s.y * S;
+        if (s.kind === SW.SHOT.CLUMP) {
+          ctx.fillStyle = '#8a6a3c';
+          ctx.beginPath(); ctx.arc(x, y, 2.8 * S, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#e4c07c';
+          ctx.beginPath(); ctx.arc(x - 0.3 * S, y - 0.3 * S, 2.2 * S, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#f6dfa8';
+          for (let k = 0; k < 4; k++) {
+            const a = s.spin + k * 1.6;
+            ctx.fillRect(x + Math.cos(a) * 1.2 * S - 2, y + Math.sin(a) * 1.2 * S - 2, 4, 4);
+          }
+        } else {
+          ctx.strokeStyle = 'rgba(235,248,255,0.95)';
+          ctx.lineWidth = 3;
+          for (let k = 0; k < 3; k++) {
+            ctx.beginPath();
+            ctx.arc(x, y, (1.2 + k) * S, s.spin + k * 2, s.spin + k * 2 + 3.6);
+            ctx.stroke();
+          }
+          ctx.fillStyle = 'rgba(255,255,255,0.5)';
+          ctx.beginPath(); ctx.arc(x, y, 1.6 * S, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      for (const b of game.shots.booms) {
+        const f = b.t / b.life;
+        if (b.kind === SW.SHOT.BLAST && f < 0.4) {
+          ctx.fillStyle = `rgba(255,255,255,${0.45 * (1 - f / 0.4)})`;
+          ctx.beginPath();
+          ctx.arc(b.x * S, b.y * S, b.r * S * (0.4 + f), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.strokeStyle = b.kind === SW.SHOT.BLAST ? `rgba(240,250,255,${1 - f})` : `rgba(240,210,150,${0.8 * (1 - f)})`;
+        ctx.lineWidth = b.kind === SW.SHOT.BLAST ? 5 * (1 - f) + 1 : 3;
+        ctx.beginPath();
+        ctx.arc(b.x * S, b.y * S, b.r * S * (0.3 + 0.9 * f), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
     drawHud(game) {
       const ctx = this.ctx, S = this.S;
       ctx.textBaseline = 'middle';
@@ -220,6 +263,15 @@
         ctx.fillStyle = c.alive ? '#fff' : '#ddd';
         ctx.fillText(c.alive ? c.name : c.name + ' - OUT', px, py - 10);
         if (!c.alive) continue;
+        if (c.stun > 0) {
+          ctx.fillStyle = '#ffe34d';
+          for (let k = 0; k < 3; k++) {
+            const a = game.frame * 0.2 + k * 2.1;
+            const sx = px + Math.cos(a) * 14, sy = (c.y - 1) * S + Math.sin(a) * 4;
+            ctx.fillRect(sx - 3, sy - 1, 6, 2);
+            ctx.fillRect(sx - 1, sy - 3, 2, 6);
+          }
+        }
         if (c.breath < SW.MAX_BREATH) {
           const bw = 34, frac = c.breath / SW.MAX_BREATH;
           ctx.fillStyle = 'rgba(0,0,0,0.6)';
@@ -254,6 +306,11 @@
           ctx.fillRect(x + 8, y + 28, 110, 6);
           ctx.fillStyle = w.color;
           ctx.fillRect(x + 8, y + 28, 110 * (p.ammo[k] / w.max), 6);
+          if (w.cost > 1) {
+            // Tick marks: one segment per shot.
+            ctx.fillStyle = 'rgba(20,20,30,0.9)';
+            for (let v = w.cost; v < w.max; v += w.cost) ctx.fillRect(x + 8 + 110 * (v / w.max) - 1, y + 27, 2, 8);
+          }
         });
       }
 

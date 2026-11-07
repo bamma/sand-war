@@ -59,17 +59,25 @@
         inp.aim = this.escapeAim;
       } else if (target) {
         const ox = c.x + c.w / 2, oy = c.y + 5;
+        // Lead a moving target a little.
+        const tx = target.cx + (target.vx + target.kx) * Math.abs(target.cx - ox) / 4.5;
         if (this.weapon === 2) {
-          inp.aim = Math.atan2(target.cy - oy, target.cx - ox) + this.err;
+          inp.aim = SW.ballisticAim(ox, oy, tx, target.cy, SW.BLAST_SPEED, SW.BLAST_G, false) + this.err;
+        } else if (this.weapon === 1) {
+          inp.aim = SW.ballisticAim(ox, oy, tx, target.y - 2, SW.WATER_SPEED, SW.PG, this.highArc) + this.err;
         } else {
-          inp.aim = SW.ballisticAim(ox, oy, target.cx, target.y - 2, SW.SHOT_SPEED, SW.PG, this.highArc) + this.err;
+          inp.aim = SW.ballisticAim(ox, oy, tx, target.y + 1, SW.SHOT_SPEED, SW.PG, this.highArc) + this.err;
         }
       }
 
-      const ammo = c.ammo[this.weapon], max = SW.WEAPONS[this.weapon].max;
+      const W = SW.WEAPONS[this.weapon];
+      const ammo = c.ammo[this.weapon];
       if (game.frame < this.startDelay || (!target && this.mode !== 'escape')) this.firing = false;
-      else if (this.firing) { if (ammo < 2) this.firing = false; }
-      else if (ammo > max * this.burstAt || (this.mode === 'escape' && ammo > 6)) this.firing = true;
+      else if (W.cost > 1) {
+        // Projectile weapons: shoot when loaded, with a little reaction jitter.
+        this.firing = ammo >= W.cost && (this.mode === 'escape' || Math.random() < 0.12);
+      } else if (this.firing) { if (ammo < 2) this.firing = false; }
+      else if (ammo > W.max * this.burstAt) this.firing = true;
 
       inp.fire = this.firing;
       inp.weapon = this.weapon;
@@ -82,7 +90,7 @@
       const buried = c.headF > 0.35 || c.sandF > 0.5 || c.mudF > 0.1 || c.topLoad > 10;
       if (buried) {
         this.mode = 'escape';
-        if (c.ammo[2] > 6) this.weapon = 2;
+        if (c.ammo[2] >= SW.WEAPONS[2].cost) this.weapon = 2;
         this.escapeAim = -Math.PI / 2 + (Math.random() - 0.5) * 1.4;
         this.move = Math.random() < 0.5 ? -1 : 1;
         if (prev !== this.weapon) this.firing = false;
@@ -94,10 +102,13 @@
 
       const dx = target.cx - c.cx, dist = Math.abs(dx);
       const r = Math.random();
-      if (target.sandF > 0.2 && c.ammo[1] > 40 && r < 0.55) this.weapon = 1;
-      else if (this.blocked(game.grid, c, target) && c.ammo[2] > 40 && r < 0.45) this.weapon = 2;
-      else if (dist < 30 && c.ammo[2] > 50 && r < 0.12) this.weapon = 2;
-      else if (c.ammo[0] > 15 || r < 0.5) this.weapon = 0;
+      const canSand = c.ammo[0] >= SW.WEAPONS[0].cost;
+      const canWind = c.ammo[2] >= SW.WEAPONS[2].cost;
+      if (target.sandF > 0.2 && c.ammo[1] > 40 && r < 0.45) this.weapon = 1;
+      else if (this.blocked(game.grid, c, target) && canWind && r < 0.5) this.weapon = 2;
+      else if (dist < 60 && canWind && r < 0.2) this.weapon = 2;
+      else if (canSand || r < 0.6) this.weapon = 0;
+      else if (c.ammo[1] > 50) this.weapon = 1;
       if (prev !== this.weapon) this.firing = false;
 
       this.highArc = Math.random() < 0.45;

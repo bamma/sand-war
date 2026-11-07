@@ -21,6 +21,7 @@
       this.owner = new Int8Array(cap);
       this.age = new Uint16Array(cap);
       this.canHit = new Uint8Array(cap);
+      this.ghost = new Uint8Array(cap);   // frames this grain passes through terrain (blast ejecta)
     }
 
     reset() { this.n = 0; }
@@ -34,6 +35,7 @@
       this.shade[i] = shade === undefined ? (Math.random() * 16) | 0 : shade;
       this.age[i] = 0;
       this.canHit[i] = type === AIR ? 0 : 1;
+      this.ghost[i] = 0;
       return i;
     }
 
@@ -45,6 +47,7 @@
       this.type[i] = this.type[l]; this.shade[i] = this.shade[l];
       this.owner[i] = this.owner[l]; this.age[i] = this.age[l];
       this.canHit[i] = this.canHit[l];
+      this.ghost[i] = this.ghost[l];
     }
 
     update(game) {
@@ -71,12 +74,14 @@
       const sx = vx / steps, sy = vy / steps;
       const W = g.w, H = g.h;
       const shade = this.shade[i];
+      const ghost = this.ghost[i] > 0;
+      if (ghost) this.ghost[i]--;
 
       for (let s = 0; s < steps; s++) {
         const nx = x + sx, ny = y + sy;
         const cx = Math.floor(nx), cy = Math.floor(ny);
         if (cx < 0 || cx >= W || cy >= H) return false;
-        if (cy >= 0) {
+        if (cy >= 0 && !ghost) {
           const ci = cy * W + cx;
           const ct = g.type[ci];
           if (ct !== EMPTY) {

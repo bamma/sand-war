@@ -40,6 +40,8 @@
       this.jumpCd = 0;
       this.firing = false;
       this.walkPhase = 0;
+      this.stun = 0;             // frames left stunned by a direct hit
+      this.cool = 0;             // weapon cooldown frames
       // sandF: how deep we are sunk (side cells filled), mudF: mud share of that,
       // headF: how covered the head is, topLoad: grains piled on our head.
       this.sandF = 0; this.mudF = 0; this.waterF = 0; this.headF = 0; this.topLoad = 0;
@@ -96,6 +98,11 @@
       for (let k = 0; k < this.ammo.length; k++) {
         const W = SW.WEAPONS[k];
         this.ammo[k] = Math.min(W.max, this.ammo[k] + W.regen);
+      }
+      if (this.cool > 0) this.cool--;
+      if (this.stun > 0) {
+        this.stun--;
+        inp = { move: 0, jump: false, fire: false, aim: this.aim, weapon: this.weapon };
       }
       if (inp.weapon !== undefined) this.weapon = inp.weapon;
       this.aim = inp.aim;
@@ -222,7 +229,7 @@
           const hi = g.idx(this.x + c, hy);
           const t = g.type[hi];
           if (!loose(t)) continue;
-          cost += t === MUD ? 0.25 : t === SAND ? 0.07 : 0.01;
+          cost += t === MUD ? 0.25 : t === SAND ? 0.1 : 0.01;
           const bi = g.idx(this.x + c, by);
           if (g.type[bi] === EMPTY) g.moveCell(hi, bi);
         }
@@ -251,22 +258,36 @@
         + (mud >= 2 || this.mudF > 0.05 ? 0.014 : 0);
       while (this.sinkAcc >= 1) {
         this.sinkAcc -= 1;
-        if (fy + 1 >= g.h - 3) break;
-        // The ground under our feet is pushed up and over us.
-        for (let c = 0; c < this.w; c++) {
-          const xx = this.x + c;
-          const fi = g.idx(xx, fy);
-          if (!loose(g.type[fi])) continue;
-          let moved = false;
-          for (let yy = this.y - 1; yy >= 0; yy--) {
-            const t = g.type[g.idx(xx, yy)];
-            if (t === EMPTY) { g.moveCell(fi, g.idx(xx, yy)); moved = true; break; }
-            if (t === WALL) break;
-          }
-          if (!moved) g.clear(fi);
-        }
-        this.y++;
+        if (!this.sinkOne(g)) break;
       }
+    }
+
+    // Sink one row into loose ground: the ground under our feet is pushed up
+    // and over us. Returns false if there is wall (or the floor) underfoot.
+    sinkOne(g) {
+      const fy = this.y + this.h;
+      if (fy + 1 >= g.h - 3) return false;
+      let lc = 0;
+      for (let c = 0; c < this.w; c++) {
+        const t = g.get(this.x + c, fy);
+        if (t === WALL) return false;
+        if (t === SAND || t === MUD) lc++;
+      }
+      if (lc < this.w / 2) return false;
+      for (let c = 0; c < this.w; c++) {
+        const xx = this.x + c;
+        const fi = g.idx(xx, fy);
+        if (!loose(g.type[fi])) continue;
+        let moved = false;
+        for (let yy = this.y - 1; yy >= 0; yy--) {
+          const t = g.type[g.idx(xx, yy)];
+          if (t === EMPTY) { g.moveCell(fi, g.idx(xx, yy)); moved = true; break; }
+          if (t === WALL) break;
+        }
+        if (!moved) g.clear(fi);
+      }
+      this.y++;
+      return true;
     }
 
     checkGround(g) {
