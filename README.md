@@ -17,11 +17,18 @@ Open `index.html` in a browser (double-clicking works; no build or server needed
 
 ## Elements
 
-Each element has its own ammo meter that refills over time.
+Each element has its own ammo meter that refills over time. For sand and wind, the bar is split into one segment per shot.
 
-- **Sand.** A stream of grains with real physics. Grains pile into dunes with natural, varied slopes. A grain that hits a character lands on their head or beside them, and the impacts push them down into loose ground.
-- **Water.** Soaks into sand and turns it into dark **mud**, seeping down through layers. Mud is sticky: it holds steep walls, slows you a lot, makes jumps weak, and makes you sink like quicksand. Mud dries back into sand after about 25 s.
-- **Wind.** A short-range cone gust. Dry sand in its path sprays up and away off the dune, and it shoves characters and airborne grains. Mud is too heavy to move and blocks the gust. Point it up when you're buried to clear sand off your head.
+- **Sand: clump launcher.** Fires a ball of 80 grains in an arc.
+  - A **direct hit** dumps the whole clump on the target's head. It also knocks them out of the air, hammers them a few rows into loose ground, and **stuns** them for 1 s.
+  - A miss bursts into a mound where it lands. Loose sand still piles into dunes with real physics.
+- **Water: stream.** Hold to spray. Water soaks into sand and turns it into dark **mud**, seeping down through layers.
+  - Mud is sticky: it holds steep walls, slows you a lot, makes jumps weak, and makes you sink like quicksand.
+  - Mud dries back into sand after about 25 s.
+- **Wind: blast shot.** Fires a fast air ball that **explodes** on impact, like a bomb going off in a dune.
+  - Dry sand in the blast radius is flung up and outward. Mud and stone hold firm.
+  - The shockwave knocks back everyone nearby, and a direct hit stuns.
+  - Fire it at your own feet when buried to blast yourself free (it doubles as a rocket jump).
 
 ## Rules
 

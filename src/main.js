@@ -18,7 +18,8 @@
       this.renderer = new SW.Renderer(this.canvas, GW, GH, SCALE);
       this.input = new SW.Input(this.canvas, GW, GH);
       this.grid = new SW.Grid(GW, GH);
-      this.particles = new SW.Particles(5000);
+      this.particles = new SW.Particles(6000);
+      this.shots = new SW.Shots();
       this.chars = [];
       this.player = null;
       this.toasts = [];
@@ -75,6 +76,7 @@
     newMatch(nBots, demo) {
       this.grid = new SW.Grid(GW, GH);
       this.particles.reset();
+      this.shots.reset();
       this.toasts = [];
       this.frame = 0;
       this.buildArena();
@@ -146,6 +148,7 @@
         c.update(this, inp);
       }
       for (const c of this.chars) SW.fire(this, c);
+      this.shots.update(this);
       this.sandstorm();
       this.particles.update(this);
       this.grid.stampBodies(this.chars);
