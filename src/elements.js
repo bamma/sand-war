@@ -28,7 +28,7 @@
   SW.WEAPONS = [
     { id: 'sand', name: 'Sand', key: '1', max: 320, regen: 1.3, cost: CLUMP_GRAINS, color: '#e8c27a' },
     { id: 'water', name: 'Water', key: '2', max: 100, regen: 0.32, cost: 1, color: '#4f8fe8' },
-    { id: 'wind', name: 'Wind', key: '3', max: 100, regen: 0.35, cost: BLAST_COST, color: '#d8f1ff' },
+    { id: 'wind', name: 'Wind', key: '3', max: BLAST_COST, regen: BLAST_COST / 300, cost: BLAST_COST, color: '#d8f1ff' },
   ];
 
   SW.muzzle = function (c) {
@@ -48,12 +48,14 @@
       c.cool = CLUMP_COOLDOWN;
       const sp = SW.SHOT_SPEED;
       game.shots.spawn(CLUMP, m.x, m.y, Math.cos(c.aim) * sp + c.vx * 0.4, Math.sin(c.aim) * sp, c.id);
+      recoil(c, 2.4);
     } else if (w === 2) {
       if (c.ammo[2] < BLAST_COST) return;
       c.ammo[2] -= BLAST_COST;
       c.cool = BLAST_COOLDOWN;
       const sp = SW.BLAST_SPEED;
       game.shots.spawn(BLAST, m.x, m.y, Math.cos(c.aim) * sp, Math.sin(c.aim) * sp, c.id);
+      recoil(c, 2.6);
     } else {
       for (let k = 0; k < 2; k++) {
         if (c.ammo[1] < 1) break;
@@ -62,8 +64,20 @@
         const sp = SW.WATER_SPEED * (0.93 + Math.random() * 0.12);
         game.particles.spawn(m.x, m.y, Math.cos(a) * sp + c.vx * 0.4, Math.sin(a) * sp, WATER, c.id);
       }
+      recoil(c, 0.08);
     }
   };
+
+  // Rocket-jump: firing while airborne kicks you the opposite way, so
+  // shooting down gives lift. On the ground the feet absorb it.
+  function recoil(c, power) {
+    if (c.grounded) return;
+    const ax = Math.cos(c.aim), ay = Math.sin(c.aim);
+    // A big shot fired downward also cancels the fall, like a rocket jump.
+    const base = power > 1 && ay > 0 ? Math.min(c.vy, 0) : c.vy;
+    c.vy = Math.max(-3.4, base - ay * power);
+    c.kx -= ax * power * 0.4;
+  }
 
   // ---------------------------------------------------------------- shots --
 

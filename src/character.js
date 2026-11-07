@@ -44,7 +44,7 @@
       this.cool = 0;             // weapon cooldown frames
       // sandF: how deep we are sunk (side cells filled), mudF: mud share of that,
       // headF: how covered the head is, topLoad: grains piled on our head.
-      this.sandF = 0; this.mudF = 0; this.waterF = 0; this.headF = 0; this.topLoad = 0;
+      this.sandF = 0; this.mudF = 0; this.waterF = 0; this.headF = 0; this.topLoad = 0; this.footMud = 0;
     }
 
     get cx() { return this.x + this.w / 2; }
@@ -79,6 +79,9 @@
       this.mudF = mud / n;
       this.waterF = water / n;
       this.headF = 0.5 * (top / this.w) + 0.5 * (sideHead / 6);
+      let foot = 0;
+      for (let c = 0; c < this.w; c++) if (g.get(this.x + c, this.y + this.h) === MUD) foot++;
+      this.footMud = foot / this.w;   // share of the ground under our feet that is mud
       // Pinned against the arena ceiling by rising sand: no air up there.
       if (this.y <= 2 && top === this.w && this.sandF > 0.3) this.headF = 1;
       this.topLoad = load;
@@ -108,7 +111,8 @@
       this.aim = inp.aim;
 
       const mudSlow = Math.min(1, this.mudF * 3);
-      const speed = 0.7 * (1 - 0.55 * this.sandF) * (1 - 0.8 * mudSlow);
+      // Mud is sticky: standing in it or walking on it drags you down.
+      const speed = 0.7 * (1 - 0.55 * this.sandF) * (1 - 0.8 * mudSlow) * (1 - 0.6 * this.footMud);
       this.vx += (inp.move * speed - this.vx) * (this.grounded ? 0.35 : 0.12);
       this.kx *= 0.9;
       if (Math.abs(this.kx) < 0.01) this.kx = 0;
@@ -118,7 +122,7 @@
 
       if (this.jumpCd > 0) this.jumpCd--;
       if (inp.jump && this.grounded && this.jumpCd === 0) {
-        const jm = Math.max(0.18, 1 - 0.3 * this.sandF - 2.4 * this.mudF);
+        const jm = Math.max(0.18, (1 - 0.3 * this.sandF - 2.4 * this.mudF) * (1 - 0.5 * this.footMud));
         this.vy = -2.6 * jm;
         this.jumpCd = 14;
       }

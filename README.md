@@ -17,18 +17,30 @@ Open `index.html` in a browser (double-clicking works; no build or server needed
 
 ## Elements
 
-Each element has its own ammo meter that refills over time. For sand and wind, the bar is split into one segment per shot.
+Each element has its own ammo meter that refills over time. Sand holds 4 clumps (one bar segment each). Wind holds a **single** blast that takes 5 s to recharge, so you only get one emergency escape at a time.
 
 - **Sand: clump launcher.** Fires a ball of 80 grains in an arc.
   - A **direct hit** dumps the whole clump on the target's head. It also knocks them out of the air, hammers them a few rows into loose ground, and **stuns** them for 1 s.
   - A miss bursts into a mound where it lands. Loose sand still piles into dunes with real physics.
 - **Water: stream.** Hold to spray. Water soaks into sand and turns it into dark **mud**, seeping down through layers.
-  - Mud is sticky: it holds steep walls, slows you a lot, makes jumps weak, and makes you sink like quicksand.
+  - Mud is sticky: it holds steep walls and makes you sink like quicksand. Walking on mud cuts your run speed to about 40% and your jump to about a quarter of normal.
   - Mud dries back into sand after about 25 s.
 - **Wind: blast shot.** Fires a fast air ball that **explodes** on impact, like a bomb going off in a dune.
   - Dry sand in the blast radius is flung up and outward. Mud and stone hold firm.
   - The shockwave knocks back everyone nearby, and a direct hit stuns.
   - Fire it at your own feet when buried to blast yourself free (it doubles as a rocket jump).
+
+## Rocket jumping
+
+Every weapon kicks back while you're in the air: shooting **down** mid-jump launches you higher. A big shot fired downward also cancels your fall.
+
+| Move | Height (rows) |
+|---|---|
+| Plain jump | about 26 |
+| Jump, then a sand shot down | about 52 (enough for the side ledges) |
+| Jump, sand shot down, then a wind blast down | about 74 |
+
+The water stream gives a gentle push that slows your fall. On the ground your feet absorb the recoil.
 
 ## Rules
 

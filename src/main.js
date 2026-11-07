@@ -115,10 +115,10 @@
       const rect = (x0, y0, x1, y1) => {
         for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) g.setCell(x, y, WALL);
       };
-      rect(22, 92, 66, 96);
-      rect(GW - 66, 92, GW - 22, 96);
+      rect(22, 112, 66, 116);
+      rect(GW - 66, 112, GW - 22, 116);
       rect(152, 128, 168, GH - 3);
-      rect(120, 62, 200, 65);
+      rect(120, 86, 200, 89);
       // Let the dunes settle a little so they look natural from frame one.
       for (let k = 0; k < 40; k++) g.update();
     }
