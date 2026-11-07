@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sand War</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game"></canvas>
+
+    <div id="menu" class="overlay">
+      <div class="panel">
+        <h1>SAND WAR</h1>
+        <p class="tag">Bury your rivals. Don't get buried.</p>
+        <div class="row">
+          <span>Bots:</span>
+          <button data-bots="1">1</button>
+          <button data-bots="2" class="sel">2</button>
+          <button data-bots="3">3</button>
+        </div>
+        <button id="start" class="big">Start (Enter)</button>
+        <div class="help">
+          <div><b>A / D</b> move &nbsp; <b>W / Space</b> jump</div>
+          <div><b>Mouse</b> aim &nbsp; <b>Left click</b> fire</div>
+          <div><b>1 2 3</b>, <b>Q / E</b> or <b>wheel</b> switch element</div>
+          <div class="elements">
+            <span class="sand">Sand</span> piles up and buries.
+            <span class="water">Water</span> turns sand to sticky mud.
+            <span class="wind">Wind</span> blasts dry sand away (not mud).
+          </div>
+          <div>If your head stays under sand you run out of air. Last one standing wins.</div>
+          <div class="dim"><b>R</b> restart &nbsp; <b>P</b> pause &nbsp; <b>Esc</b> menu</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="over" class="overlay hidden">
+      <div class="panel">
+        <h1 id="over-title">Victory!</h1>
+        <p id="over-sub" class="tag"></p>
+        <button id="again" class="big">Play again (R)</button>
+        <button id="to-menu">Menu (Esc)</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="src/grid.js"></script>
+  <script src="src/particles.js"></script>
+  <script src="src/elements.js"></script>
+  <script src="src/character.js"></script>
+  <script src="src/bot.js"></script>
+  <script src="src/input.js"></script>
+  <script src="src/render.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
