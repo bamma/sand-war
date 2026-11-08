@@ -3,10 +3,11 @@
 (function () {
   'use strict';
   const SW = window.SW;
-  const { EMPTY, SAND, MUD, WATER, AIR } = SW.T;
+  const { EMPTY, WALL, SAND, MUD, WATER, AIR } = SW.T;
 
   SW.PG = 0.15;          // particle gravity (cells / frame^2)
   const MAX_SPEED = 9;
+  const CEILING = 2;     // first open row below the stone ceiling
 
   class Particles {
     constructor(cap) {
@@ -81,10 +82,17 @@
         const nx = x + sx, ny = y + sy;
         const cx = Math.floor(nx), cy = Math.floor(ny);
         if (cx < 0 || cx >= W || cy >= H) return false;
-        if (cy >= 0 && !ghost) {
+        if (cy < CEILING) {
+          // Hit the ceiling: stop dead and fall straight down from there.
+          y = CEILING + 0.01; vx = 0; vy = 0;
+          break;
+        }
+        {
           const ci = cy * W + cx;
           const ct = g.type[ci];
-          if (ct !== EMPTY) {
+          // Blast ejecta may pass through loose sand for a few frames,
+          // but never through stone.
+          if (ct !== EMPTY && !(ghost && ct !== WALL)) {
             if (t === WATER && ct === SAND) {
               g.wet(ci);
               wetAround(g, cx, cy);
@@ -94,7 +102,7 @@
               g.refresh(ci);
               if (Math.random() < 0.6) return false;
             }
-            settle(g, Math.floor(x), Math.floor(y), t, shade);
+            settle(g, Math.floor(x), Math.floor(y), t, shade, chars);
             return false;
           }
         }
@@ -112,8 +120,8 @@
                 c.kx += vx * 0.008;
                 if (t === SAND) c.load += 1;
               }
-              if (y - c.y < 2 || vy > Math.abs(vx) * 1.5) settle(g, Math.floor(x), c.y - 1, t, shade);
-              else settle(g, vx > 0 ? c.x - 1 : c.x + c.w, Math.floor(y), t, shade);
+              if (y - c.y < 2 || vy > Math.abs(vx) * 1.5) settle(g, Math.floor(x), c.y - 1, t, shade, chars);
+              else settle(g, vx > 0 ? c.x - 1 : c.x + c.w, Math.floor(y), t, shade, chars);
               return false;
             }
           }
@@ -132,15 +140,41 @@
     }
   }
 
-  // Write a landed grain into the grid at (px,py), or the first free cell above.
-  function settle(g, px, py, t, shade) {
-    if (px < 0 || px >= g.w) return;
+  // Write a landed grain into the grid at (px,py), or the first free cell
+  // above it. If that column is full (e.g. packed up against the ceiling),
+  // use the nearest free cell around it so sand is never destroyed.
+  function settle(g, px, py, t, shade, chars) {
+    px = Math.max(0, Math.min(g.w - 1, px));
     for (let k = 0; k < 14; k++) {
       const y = py - k;
-      if (y < 0) return;
+      if (y < CEILING) break;
       if (y >= g.h) continue;
-      if (g.type[y * g.w + px] === EMPTY) { g.setCell(px, y, t, shade); return; }
+      if (g.type[y * g.w + px] === EMPTY && !inBody(chars, px, y)) { g.setCell(px, y, t, shade); return; }
     }
+    const cy = Math.max(CEILING, Math.min(g.h - 1, py));
+    for (let r = 1; r <= 8; r++) {
+      let best = -1, bestD = Infinity;
+      for (let y = cy - r; y <= cy + r; y++) {
+        if (y < CEILING || y >= g.h) continue;
+        for (let x = px - r; x <= px + r; x++) {
+          if (x < 0 || x >= g.w) continue;
+          if (Math.max(Math.abs(x - px), Math.abs(y - cy)) !== r) continue; // ring only
+          if (g.type[y * g.w + x] !== EMPTY || inBody(chars, x, y)) continue;
+          const d = (x - px) * (x - px) + (y - cy) * (y - cy);
+          if (d < bestD) { bestD = d; best = y * g.w + x; }
+        }
+      }
+      if (best >= 0) { g.setCell(best % g.w, (best / g.w) | 0, t, shade); return; }
+    }
+  }
+
+  function inBody(chars, x, y) {
+    if (!chars) return false;
+    for (let k = 0; k < chars.length; k++) {
+      const c = chars[k];
+      if (x >= c.x && x < c.x + c.w && y >= c.y && y < c.y + c.h) return true;
+    }
+    return false;
   }
 
   SW.Particles = Particles;

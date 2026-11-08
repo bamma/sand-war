@@ -173,7 +173,6 @@
         const s = 1 - d / R;
         if (Math.random() > 0.45 + 0.6 * s) continue;
         const sh = g.shade[i];
-        g.clear(i);
         const nx = d > 0.01 ? dx / d : 0, ny = d > 0.01 ? dy / d : -1;
         // Ejecta fan out sideways but always go up: the open side of an impact
         // crater is the sky, so grains escape instead of re-hitting the dune.
@@ -182,7 +181,9 @@
           nx * sp + (Math.random() - 0.5) * 1.2,
           Math.min(ny, 0) * sp * 0.5 - 1.8 - 3.5 * s - Math.random() * 1.5,
           t, owner, sh);
-        if (pi >= 0) P.ghost[pi] = 4;
+        if (pi < 0) continue;          // particle pool full: leave the grain where it is
+        g.clear(i);
+        P.ghost[pi] = 4;
       }
     }
     // Shockwave on characters.
