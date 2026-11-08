@@ -34,7 +34,7 @@
       this.youClient = -1;
       this.youChar = -1;
       this.isHost = false;
-      this.bots = 1;
+      this.score = null;          // latest scoreboard from the server
       this.lastInput = '';
       this.lastInputAt = 0;
       this.overShown = false;
@@ -48,15 +48,7 @@
       $('net-create').addEventListener('click', (e) => { e.target.blur(); this.create(); });
       $('net-join').addEventListener('click', (e) => { e.target.blur(); this.join($('net-code').value); });
       $('net-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.join($('net-code').value); });
-      $('lobby-start').addEventListener('click', (e) => { e.target.blur(); this.send({ t: 'start', bots: this.bots }); });
       $('lobby-leave').addEventListener('click', (e) => { e.target.blur(); this.leave(); this.status(''); });
-      document.querySelectorAll('[data-netbots]').forEach((b) => {
-        b.addEventListener('click', () => {
-          this.bots = +b.dataset.netbots;
-          document.querySelectorAll('[data-netbots]').forEach((o) => o.classList.toggle('sel', o === b));
-          b.blur();
-        });
-      });
     }
 
     status(text) { $('online-status').textContent = text; }
@@ -118,6 +110,7 @@
       this.active = false;
       this.room = null;
       this.prev = this.cur = null;
+      this.score = null;
       $('lobby').classList.add('hidden');
       this.game.setOverButtons(true);
     }
@@ -150,9 +143,9 @@
           li.textContent = p.name + (p.host ? ' (host)' : '') + (p.id === this.youClient ? ' - you' : '');
           $('lobby-players').appendChild(li);
         }
-        $('lobby-host').classList.toggle('hidden', !this.isHost);
-        $('lobby-wait').classList.toggle('hidden', this.isHost);
-        if (this.active && this.view.state === 'over') this.updateOverButtons();
+      } else if (msg.t === 'score') {
+        this.score = msg;
+        this.view.scoreboard = msg;
       } else if (msg.t === 'start') {
         this.youChar = msg.you;
         this.startMatch();
@@ -167,8 +160,8 @@
       game.menuEl.classList.add('hidden');
       game.overEl.classList.add('hidden');
       this.view = makeView(game);
+      this.view.scoreboard = this.score;
       this.prev = this.cur = null;
-      this.overShown = false;
       this.active = true;
     }
 
@@ -184,29 +177,29 @@
       v.toasts = head.toasts;
       v.state = head.over ? 'over' : 'playing';
       v.shots.booms = head.booms.map((b) => ({ x: b.x, y: b.y, t: b.t, life: b.l, r: b.r, kind: b.k }));
-      if (head.over && !this.overShown) this.showOver(head);
     }
 
-    showOver(head) {
-      this.overShown = true;
-      const game = this.game;
-      const winner = head.chars.find((c) => c.id === head.win);
-      game.overTitle.textContent = winner ? (winner.id === this.youChar ? 'Victory!' : `${winner.n} wins!`) : 'Everyone was buried!';
-      game.overSub.textContent = winner && winner.id !== this.youChar && this.youChar >= 0
-        ? 'You ran out of air under the sand.' : `Match lasted ${Math.round(head.f / 60)} seconds.`;
-      this.updateOverButtons();
-      setTimeout(() => { if (this.active && this.overShown) game.overEl.classList.remove('hidden'); }, 1000);
-    }
-
-    updateOverButtons() {
-      this.game.setOverButtons(this.isHost, this.isHost ? 'Play again (R)' : 'Waiting for host');
-    }
-
-    rematch() { if (this.isHost) this.send({ t: 'start', bots: this.bots }); }
+    // Rounds restart automatically online, so there is nothing to rematch.
+    rematch() {}
 
     onKey(code) {
       if (code === 'Escape') this.game.showMenu();
-      else if (code === 'KeyR' && this.view.state === 'over') this.rematch();
+    }
+
+    // Centre-screen message: round result, series champion, or spectating.
+    banner() {
+      const s = this.score;
+      if (s && s.phase === 'champion' && s.champion) {
+        const top = s.rows.find((r) => r.name === s.champion);
+        const rest = s.rows.filter((r) => r !== top).map((r) => r.wins);
+        const tally = top ? `${top.wins}-${rest.length ? Math.max(...rest) : 0}` : '';
+        return { big: `${s.champion} wins the series ${tally}!`, small: `New series in ${s.countdown}...` };
+      }
+      if (s && s.phase === 'between') {
+        return { big: s.winner ? `${s.winner} wins the round!` : 'Everyone was buried!', small: `Next round in ${s.countdown}...` };
+      }
+      if (this.youChar < 0) return { big: '', small: "Watching - you'll join next round" };
+      return null;
     }
 
     // Called every animation frame while active: interpolate, then send input.
@@ -221,6 +214,7 @@
         return toChar(c, p, alpha);
       });
       v.player = v.chars.find((c) => c.id === this.youChar) || null;
+      v.banner = this.banner();
       v.shots.list = cur.shots.map((s) => {
         const p = prev && prev.shots.find((o) => o.id === s.id);
         return { kind: s.k, x: p ? lerp(p.x, s.x, alpha) : s.x, y: p ? lerp(p.y, s.y, alpha) : s.y, spin: s.sp };

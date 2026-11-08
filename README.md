@@ -75,9 +75,30 @@ npm start
 ```
 
 Then open http://localhost:8080. The server serves the game page too.
-1. Enter a name and click **Create room** to get a 4-letter code.
+1. Enter a name and click **Create room** to get a 4-letter code. You start playing against bots right away.
 2. Friends on the same network open `http://<your-ip>:8080/?room=CODE`, or click **Play online** and type the code.
-3. The host picks the number of bots and clicks **Start match**. After the match, the host can start a rematch.
+
+### Series and scoreboard
+
+- **First to 3 round wins** takes the series. A scoreboard in the top right shows each fighter's wins.
+- **Rounds run automatically.** The next round starts 4 s after a round ends. After a champion, the final result shows for 8 s, then a new series starts from 0–0.
+- **Bots keep you busy while you wait.** On your own, you play against 3 bots. When the **first opponent joins, the game resets**: new series, all scores 0.
+- **Later joiners don't reset anything.** They watch the current round, then fight from the next one with 0 wins.
+- **Leaving:** if everyone else leaves, the last player goes back to playing bots.
+- A round where everyone is buried scores nothing.
+- Up to 4 fighters per round. Extra players (up to 8 per room) watch.
+
+### Server settings
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PORT` | `8080` | Port for the page and WebSocket |
+| `FILL_BOTS` | off | "Fill room with bots": `1` adds bots to fill every round up to 4 fighters. When off, bots only play against a player who is alone. |
+| `WINS_TO_WIN` | `3` | Round wins needed to take the series |
+
+```bash
+FILL_BOTS=1 WINS_TO_WIN=3 npm start
+```
 
 ### Which server the page uses
 
@@ -94,7 +115,7 @@ This is phases 1–2 of the plan: a working online prototype.
 - Other players are interpolated, but your own character isn't predicted yet, so you feel your round-trip lag.
 - Next steps: client-side prediction, smarter compression, then deploying the server.
 
-`cd server && npm test` runs a headless bot match in Node and checks that snapshots rebuild the exact grid.
+`cd server && npm test` runs three checks: a headless bot match in Node, a test that snapshots rebuild the exact grid, and the series rules (reset on first opponent, late joiners, first to 3, leaving), with "fill room with bots" both on and off.
 
 ## Code layout
 
@@ -112,7 +133,9 @@ This is phases 1–2 of the plan: a working online prototype.
 | `src/main.js` | Browser shell: menu, single-player loop, hand-off to online play |
 | `src/protocol.js` | Binary snapshot format (full grid or changed cells) |
 | `src/net.js` | Online client: rooms/lobby, sending input, drawing server snapshots (loaded on demand) |
-| `server/index.js` | Node server: serves the page, rooms with join codes, authoritative 60 Hz simulation |
+| `server/index.js` | Node server: serves the page, WebSockets, settings, 60 Hz tick loop |
+| `server/room.js` | One room: players, automatic rounds, first-to-3 series scoreboard |
+| `server/room-test.js` | Headless test of the series rules |
 | `server/headless-test.js` | Headless bot match and snapshot round-trip check |
 
 The simulation runs on a 320×180 grid, drawn at 4× scale, with a fixed 60 Hz timestep.
