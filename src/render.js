@@ -248,6 +248,60 @@
       }
     }
 
+    // Online series scoreboard: wins as pips towards the target.
+    drawScoreboard(s) {
+      const ctx = this.ctx;
+      const W = 236, rowH = 22, x = this.canvas.width - W - 12, y = 44;
+      const h = 30 + s.rows.length * rowH + 6;
+      ctx.fillStyle = 'rgba(20,20,30,0.6)';
+      roundRect(ctx, x, y, W, h, 6);
+      ctx.fill();
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      ctx.font = 'bold 12px monospace';
+      ctx.fillStyle = '#f3cf86';
+      ctx.fillText(`ROUND ${s.round}  -  FIRST TO ${s.target}`, x + 10, y + 15);
+      s.rows.forEach((r, k) => {
+        const ry = y + 30 + k * rowH + rowH / 2;
+        if (r.you) {
+          ctx.fillStyle = 'rgba(255,255,255,0.12)';
+          ctx.fillRect(x + 4, ry - rowH / 2 + 1, W - 8, rowH - 2);
+        }
+        ctx.fillStyle = r.color;
+        ctx.beginPath(); ctx.arc(x + 16, ry, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.font = (r.you ? 'bold ' : '') + '13px monospace';
+        ctx.fillStyle = r.bot ? '#b9b2a6' : '#fff';
+        const label = r.name + (r.bot ? ' (bot)' : '') + (r.waiting ? ' - next' : '');
+        ctx.fillText(label.slice(0, 16), x + 28, ry);
+        for (let p = 0; p < s.target; p++) {
+          const px = x + W - 14 - (s.target - 1 - p) * 15;
+          ctx.beginPath();
+          ctx.arc(px, ry, 5, 0, Math.PI * 2);
+          if (p < r.wins) { ctx.fillStyle = '#f3cf86'; ctx.fill(); } else { ctx.strokeStyle = 'rgba(243,207,134,0.6)'; ctx.lineWidth = 1.5; ctx.stroke(); }
+        }
+      });
+    }
+
+    drawBanner(b) {
+      const ctx = this.ctx, cx = this.canvas.width / 2, cy = this.canvas.height * 0.36;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      if (b.big) {
+        ctx.font = 'bold 40px monospace';
+        ctx.fillStyle = 'rgba(60,35,10,0.8)';
+        ctx.fillText(b.big, cx + 3, cy + 3);
+        ctx.fillStyle = '#f3cf86';
+        ctx.fillText(b.big, cx, cy);
+      }
+      if (b.small) {
+        ctx.font = 'bold 18px monospace';
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillText(b.small, cx + 1, cy + 41);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(b.small, cx, cy + 40);
+      }
+    }
+
     drawHud(game) {
       const ctx = this.ctx, S = this.S;
       ctx.textBaseline = 'middle';
@@ -328,6 +382,9 @@
       ctx.fillText(label, this.canvas.width - 15, 31);
       ctx.fillStyle = '#fff';
       ctx.fillText(label, this.canvas.width - 16, 30);
+
+      if (game.scoreboard) this.drawScoreboard(game.scoreboard);
+      if (game.banner) this.drawBanner(game.banner);
 
       // Toasts.
       ctx.textAlign = 'center';

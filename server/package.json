@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node headless-test.js"
+    "test": "node headless-test.js && node room-test.js"
   },
   "engines": {
     "node": ">=18"

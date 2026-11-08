@@ -5,7 +5,7 @@
 // It also serves the game page, so `npm start` + http://localhost:8080 is a
 // complete local setup.
 //
-//   PORT=8080 node server/index.js
+//   PORT=8080 FILL_BOTS=1 WINS_TO_WIN=3 node server/index.js
 'use strict';
 
 const http = require('http');
@@ -19,11 +19,14 @@ for (const f of ['grid', 'particles', 'elements', 'character', 'bot', 'match', '
 }
 const SW = globalThis.SW;
 
+const { Room } = require('./room');
+
+// Server settings (environment variables).
 const PORT = +process.env.PORT || 8080;
+const FILL_BOTS = /^(1|true|yes|on)$/i.test(process.env.FILL_BOTS || '');  // "fill room with bots"
+const WINS_TO_WIN = Math.max(1, +process.env.WINS_TO_WIN || 3);
+const MAX_IN_ROOM = 8;             // 4 fighters, the rest watch
 const STEP_MS = 1000 / 60;
-const SNAP_EVERY = 2;            // send a snapshot every 2 sim steps (30 Hz)
-const MAX_HUMANS = SW.MAX_FIGHTERS;
-const OVER_LINGER = 6 * 60;      // keep simulating this long after a match ends
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ';
 
 // ------------------------------------------------------------------ http --
@@ -59,86 +62,34 @@ function newCode() {
   }
 }
 
-class Room {
-  constructor(code) {
-    this.code = code;
-    this.clients = [];          // join order; clients[0] is host
-    this.bots = 1;
-    this.match = null;
-    this.inputs = new Map();    // character id -> latest input
-    this.steps = 0;
-  }
+// Deliver to a client's socket. Droppable messages (snapshots) are skipped
+// when the socket is backed up; returns whether the message was sent.
+function deliver(client, data, droppable) {
+  const ws = client.ws;
+  if (ws.readyState !== 1) return false;
+  if (droppable && ws.bufferedAmount > 1 << 20) return false;
+  ws.send(data);
+  return true;
+}
 
-  get host() { return this.clients[0] || null; }
+function makeRoom() {
+  const r = new Room(newCode(), { fillBots: FILL_BOTS, winsToWin: WINS_TO_WIN, send: deliver });
+  rooms.set(r.code, r);
+  return r;
+}
 
-  lobby() {
-    return {
-      t: 'lobby', room: this.code, bots: this.bots, inMatch: !!this.match && !this.match.over,
-      players: this.clients.map((c) => ({ id: c.id, name: c.name, host: c === this.host })),
-    };
-  }
-
-  broadcast(msg) {
-    const s = JSON.stringify(msg);
-    for (const c of this.clients) send(c.ws, s);
-  }
-
-  start(bots) {
-    const humans = this.clients.slice(0, MAX_HUMANS);
-    this.bots = Math.max(0, Math.min(SW.MAX_FIGHTERS - humans.length, bots | 0));
-    this.match = new SW.Match({ humans: humans.map((c) => ({ name: c.name })), bots: this.bots });
-    this.inputs.clear();
-    this.steps = 0;
-    for (const c of this.clients) {
-      const k = humans.indexOf(c);
-      c.charId = k >= 0 ? k : -1;  // -1 = spectator (joined while full)
-      c.lastGrid = null;           // next snapshot carries the full grid
-      send(c.ws, JSON.stringify({ t: 'start', you: c.charId }));
-    }
-    this.broadcast(this.lobby());
-  }
-
-  step() {
-    const m = this.match;
-    if (!m) return;
-    if (m.over && m.frame - m.overAt > OVER_LINGER) return;
-    m.step((c) => this.inputs.get(c.id) || { move: 0, jump: false, fire: false, aim: c.aim, weapon: c.weapon });
-    if (++this.steps % SNAP_EVERY === 0) this.snapshot();
-  }
-
-  snapshot() {
-    const g = this.match.grid;
-    const cur = { a: new Uint8Array(g.type.length), b: new Uint8Array(g.type.length) };
-    SW.Proto.packGrid(g, cur.a, cur.b);
-    for (const c of this.clients) {
-      if (c.ws.readyState !== 1) continue;
-      // Skip clients whose socket is backed up rather than queueing forever.
-      if (c.ws.bufferedAmount > 1 << 20) continue;
-      const { buf } = SW.Proto.encodeSnapshot(this.match, c.charId, cur, c.lastGrid);
-      c.ws.send(buf);
-      c.lastGrid = cur;
-    }
-  }
-
-  remove(client) {
-    const i = this.clients.indexOf(client);
-    if (i < 0) return;
-    this.clients.splice(i, 1);
-    const m = this.match;
-    if (m && client.charId >= 0) {
-      const ch = m.chars[client.charId];
-      if (ch && ch.alive) { ch.alive = false; m.toast(`${ch.name} left the match`); }
-    }
-    if (!this.clients.length) { rooms.delete(this.code); return; }
-    this.broadcast(this.lobby());
-  }
+function leaveRoom(client) {
+  const r = client.room;
+  if (!r) return;
+  r.removeClient(client);
+  if (!r.clients.length) rooms.delete(r.code);
 }
 
 // ------------------------------------------------------------- websocket --
 
 const wss = new WebSocketServer({ server, perMessageDeflate: { threshold: 256 }, maxPayload: 4096 });
 
-function send(ws, data) { if (ws.readyState === 1) ws.send(data); }
+function sendJson(ws, msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
 
 function cleanName(s) {
   const n = String(s || '').replace(/[^\w \-]/g, '').trim().slice(0, 10);
@@ -146,50 +97,34 @@ function cleanName(s) {
 }
 
 wss.on('connection', (ws) => {
-  const client = { id: nextClientId++, ws, name: 'Player', room: null, charId: -1, lastGrid: null };
+  const client = { id: nextClientId++, ws, name: 'Player', room: null, charId: -1, lastGrid: null, waiting: false };
 
   ws.on('message', (data, isBinary) => {
     if (isBinary) return;
     let msg;
     try { msg = JSON.parse(data.toString()); } catch { return; }
-    const room = client.room;
     switch (msg.t) {
       case 'create': {
-        if (room) room.remove(client);
+        leaveRoom(client);
         client.name = cleanName(msg.name);
-        const r = new Room(newCode());
-        rooms.set(r.code, r);
-        r.clients.push(client);
-        client.room = r;
-        send(ws, JSON.stringify({ t: 'joined', room: r.code, you: client.id }));
-        r.broadcast(r.lobby());
+        makeRoom().addClient(client);
         break;
       }
       case 'join': {
         const code = String(msg.room || '').toUpperCase().slice(0, 4);
         const r = rooms.get(code);
-        if (!r) { send(ws, JSON.stringify({ t: 'error', msg: `No room called ${code}` })); break; }
-        if (r.clients.length >= 8) { send(ws, JSON.stringify({ t: 'error', msg: 'That room is full' })); break; }
-        if (room) room.remove(client);
+        if (!r) { sendJson(ws, { t: 'error', msg: `No room called ${code}` }); break; }
+        if (r === client.room) break;
+        if (r.clients.length >= MAX_IN_ROOM) { sendJson(ws, { t: 'error', msg: 'That room is full' }); break; }
+        leaveRoom(client);
         client.name = cleanName(msg.name);
-        r.clients.push(client);
-        client.room = r;
-        client.charId = -1;
-        client.lastGrid = null;
-        send(ws, JSON.stringify({ t: 'joined', room: r.code, you: client.id }));
-        r.broadcast(r.lobby());
-        break;
-      }
-      case 'start': {
-        if (!room || room.host !== client) break;
-        if (room.match && !room.match.over) break;
-        room.start(msg.bots);
+        r.addClient(client);
         break;
       }
       case 'input': {
-        if (!room || !room.match || client.charId < 0) break;
+        if (!client.room) break;
         const aim = Number(msg.a);
-        room.inputs.set(client.charId, {
+        client.room.setInput(client, {
           move: Math.max(-1, Math.min(1, Math.round(Number(msg.m) || 0))),
           jump: !!msg.j,
           fire: !!msg.f,
@@ -199,14 +134,13 @@ wss.on('connection', (ws) => {
         break;
       }
       case 'leave': {
-        if (room) room.remove(client);
-        client.room = null;
+        leaveRoom(client);
         break;
       }
     }
   });
 
-  ws.on('close', () => { if (client.room) client.room.remove(client); });
+  ws.on('close', () => leaveRoom(client));
   ws.on('error', () => {});
 });
 
@@ -228,6 +162,7 @@ setInterval(() => {
 
 server.listen(PORT, () => {
   console.log(`Sand War server on http://localhost:${PORT}  (WebSocket on the same port)`);
+  console.log(`Settings: fill room with bots ${FILL_BOTS ? 'ON' : 'off'}, first to ${WINS_TO_WIN} wins`);
 });
 
 module.exports = { server, rooms };
