@@ -7,6 +7,7 @@
 //    the current round and fight from the next one with 0 wins.
 //  - First to `winsToWin` round wins takes the series; after a short pause a
 //    new series starts from 0-0.
+//  - The map changes every round, cycling through the rotation.
 //  - Bots fill empty fighter slots when a player is alone, or always when the
 //    server's "fill room with bots" setting is on.
 //
@@ -26,6 +27,9 @@ class Room {
   constructor(code, opts) {
     this.code = code;
     this.fillBots = !!opts.fillBots;
+    // Maps rotate every round; start at a random point in the rotation.
+    this.maps = (opts.maps && opts.maps.length ? opts.maps : SW.MAP_IDS).slice();
+    this.mapIndex = (Math.random() * this.maps.length) | 0;
     this.winsToWin = opts.winsToWin || 3;
     this.send = opts.send;
     this.clients = [];             // join order; clients[0] is host
@@ -96,7 +100,8 @@ class Room {
     for (const c of this.clients) c.waiting = false;
     const fighters = this.clients.slice(0, SW.MAX_FIGHTERS);
     const nBots = fighters.length === 1 || this.fillBots ? SW.MAX_FIGHTERS - fighters.length : 0;
-    this.match = new SW.Match({ humans: fighters.map((c) => ({ name: c.name })), bots: nBots });
+    const map = this.maps[this.mapIndex++ % this.maps.length];
+    this.match = new SW.Match({ humans: fighters.map((c) => ({ name: c.name })), bots: nBots, map });
     this.round++;
     this.phase = 'round';
     this.countdown = 0;
@@ -190,6 +195,7 @@ class Room {
     rows.sort((a, b) => b.wins - a.wins || a.name.localeCompare(b.name));
     return {
       t: 'score', target: this.winsToWin, round: this.round, phase: this.phase,
+      map: this.match ? this.match.mapName : null,
       countdown: Math.ceil(this.countdown / FPS), champion: this.champion,
       winner: this.lastWinner, rows,
     };

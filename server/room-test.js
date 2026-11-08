@@ -5,9 +5,10 @@
 const path = require('path');
 const assert = require('assert');
 const ROOT = path.resolve(__dirname, '..');
-for (const f of ['grid', 'particles', 'elements', 'character', 'bot', 'match', 'protocol']) {
+for (const f of ['grid', 'particles', 'elements', 'character', 'bot', 'maps', 'match', 'protocol']) {
   require(path.join(ROOT, 'src', f + '.js'));
 }
+const SW = globalThis.SW;
 const { Room } = require('./room');
 
 let nextId = 1;
@@ -98,5 +99,27 @@ for (const fillBots of [false, true]) {
   assert.strictEqual(wins(room, a), 0);
 
   console.log(`series rules OK (fill room with bots: ${fillBots ? 'on' : 'off'})`);
+}
+// Maps rotate every round, in order; MAPS limits the rotation; score carries the map name.
+{
+  const room = new Room('MAPS', { fillBots: false, winsToWin: 99, maps: ['canyon', 'oasis'], send });
+  const a = client('Ann'), b = client('Ben');
+  room.addClient(a);
+  room.addClient(b);
+  const seen = [];
+  for (let k = 0; k < 4; k++) {
+    seen.push(room.match.mapId);
+    assert.strictEqual(lastOf(a, 'score').map, room.match.mapName);
+    winRound(room, charOf(room, a));
+  }
+  assert.ok(seen.every((id) => id === 'canyon' || id === 'oasis'), 'only maps from the rotation');
+  for (let k = 1; k < seen.length; k++) assert.notStrictEqual(seen[k], seen[k - 1], 'map changes every round');
+  const all = new Room('ALL', { fillBots: false, winsToWin: 99, send });
+  const c = client('Cy');
+  all.addClient(c);
+  const ids = new Set();
+  for (let k = 0; k < SW.MAP_IDS.length; k++) { ids.add(all.match.mapId); winRound(all, charOf(all, c)); }
+  assert.strictEqual(ids.size, SW.MAP_IDS.length, 'default rotation visits every map');
+  console.log(`map rotation OK (${seen.join(' -> ')}; default rotation covers ${ids.size} maps)`);
 }
 console.log('all room checks passed');

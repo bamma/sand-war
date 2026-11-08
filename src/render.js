@@ -252,7 +252,8 @@
     drawScoreboard(s) {
       const ctx = this.ctx;
       const W = 236, rowH = 22, x = this.canvas.width - W - 12, y = 44;
-      const h = 30 + s.rows.length * rowH + 6;
+      const top = s.map ? 44 : 30;   // header height: title, plus a map line
+      const h = top + s.rows.length * rowH + 6;
       ctx.fillStyle = 'rgba(20,20,30,0.6)';
       roundRect(ctx, x, y, W, h, 6);
       ctx.fill();
@@ -261,8 +262,13 @@
       ctx.font = 'bold 12px monospace';
       ctx.fillStyle = '#f3cf86';
       ctx.fillText(`ROUND ${s.round}  -  FIRST TO ${s.target}`, x + 10, y + 15);
+      if (s.map) {
+        ctx.font = '12px monospace';
+        ctx.fillStyle = '#d9ccb4';
+        ctx.fillText(`Map: ${s.map}`, x + 10, y + 31);
+      }
       s.rows.forEach((r, k) => {
-        const ry = y + 30 + k * rowH + rowH / 2;
+        const ry = y + top + k * rowH + rowH / 2;
         if (r.you) {
           ctx.fillStyle = 'rgba(255,255,255,0.12)';
           ctx.fillRect(x + 4, ry - rowH / 2 + 1, W - 8, rowH - 2);
@@ -382,6 +388,13 @@
       ctx.fillText(label, this.canvas.width - 15, 31);
       ctx.fillStyle = '#fff';
       ctx.fillText(label, this.canvas.width - 16, 30);
+      if (game.mapName && !game.scoreboard) {
+        ctx.font = 'bold 13px monospace';
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillText(game.mapName, this.canvas.width - 15, 51);
+        ctx.fillStyle = '#f3cf86';
+        ctx.fillText(game.mapName, this.canvas.width - 16, 50);
+      }
 
       if (game.scoreboard) this.drawScoreboard(game.scoreboard);
       if (game.banner) this.drawBanner(game.banner);

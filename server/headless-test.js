@@ -7,7 +7,7 @@
 const path = require('path');
 const assert = require('assert');
 const ROOT = path.resolve(__dirname, '..');
-for (const f of ['grid', 'particles', 'elements', 'character', 'bot', 'match', 'protocol']) {
+for (const f of ['grid', 'particles', 'elements', 'character', 'bot', 'maps', 'match', 'protocol']) {
   require(path.join(ROOT, 'src', f + '.js'));
 }
 const SW = globalThis.SW;
@@ -50,6 +50,30 @@ const SW = globalThis.SW;
     assert.strictEqual(view.grid.shade[i], prev.a[i] & 15, `shade mismatch at cell ${i}`);
   }
   console.log(`snapshot round trip OK: full ${(bytesFull / 1024).toFixed(1)} KB, average delta ${(bytesDelta / deltas / 1024).toFixed(1)} KB (before compression)`);
+}
+
+// 3. Every map: spawns are in open air, everyone lands, a bot match ends.
+{
+  const idle = (c) => ({ move: 0, jump: false, fire: false, aim: c.aim });
+  for (const map of SW.MAPS) {
+    const t0 = Date.now();
+    const m = new SW.Match({ humans: [{ name: 'Idle' }], bots: 3, map: map.id });
+    assert.strictEqual(m.mapId, map.id);
+    assert.strictEqual(m.chars.length, 4);
+    for (const c of m.chars) {
+      for (let r = 0; r < c.h; r++) for (let k = 0; k < c.w; k++) {
+        assert.strictEqual(m.grid.get(c.x + k, c.y + r), SW.T.EMPTY, `${map.id}: ${c.name} spawns inside terrain`);
+      }
+    }
+    const touched = new Set();
+    for (let f = 0; f < 180; f++) { m.step(idle); for (const c of m.chars) if (c.grounded) touched.add(c); }
+    const fell = m.chars.filter((c) => !touched.has(c));
+    assert.strictEqual(fell.length, 0, `${map.id}: ${fell.map((c) => c.name)} never landed in 3 s`);
+    const landed = m.chars[0].x + ',' + m.chars[0].y;
+    while (!m.over && m.frame < 60 * 60 * 6) m.step(idle);
+    assert.ok(m.over, `${map.id}: match should end`);
+    console.log(`map ${map.id.padEnd(9)} idle player landed at ${landed.padEnd(8)} match ended ${(m.frame / 60).toFixed(0).padStart(3)}s (${((Date.now() - t0) / 1000).toFixed(1)}s real)`);
+  }
 }
 
 console.log('all headless checks passed');
