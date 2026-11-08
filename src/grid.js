@@ -1,7 +1,7 @@
 // Cellular-automaton world grid: sand, mud, water and walls.
 (function () {
   'use strict';
-  const SW = (window.SW = window.SW || {});
+  const SW = (globalThis.SW = globalThis.SW || {});
 
   const EMPTY = 0, WALL = 1, SAND = 2, MUD = 3, WATER = 4, AIR = 5, BODY = 6;
   SW.T = { EMPTY, WALL, SAND, MUD, WATER, AIR, BODY };

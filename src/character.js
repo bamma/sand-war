@@ -5,7 +5,7 @@
 // "buried" when sand covers your head and surrounds it on both sides.
 (function () {
   'use strict';
-  const SW = window.SW;
+  const SW = globalThis.SW;
   const { EMPTY, WALL, SAND, MUD, WATER } = SW.T;
 
   const MAX_BREATH = 180;        // frames of air once the head is buried (~3 s)

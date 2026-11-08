@@ -79,3 +79,23 @@ button.big { font-size: 20px; padding: 10px 26px; margin: 4px; }
 .sand { color: #f3cf86; font-weight: bold; }
 .water { color: #7fb2ff; font-weight: bold; }
 .wind { color: #d8f1ff; font-weight: bold; }
+
+#online-btn { margin: 4px; }
+.status { min-height: 1.4em; margin-top: 6px; color: #ffcf8a; font-size: 13px; }
+#online { margin-top: 8px; padding-top: 10px; border-top: 1px solid rgba(232, 194, 122, 0.4); }
+#online.hidden, #lobby.hidden, .hidden { display: none; }
+input {
+  font: inherit;
+  background: #f3e6cc;
+  color: #2a1d0f;
+  border: 2px solid #8a6a3c;
+  border-radius: 6px;
+  padding: 5px 8px;
+  width: 9em;
+}
+#net-code { width: 5em; text-transform: uppercase; text-align: center; }
+#lobby { margin-top: 10px; }
+#lobby ul { list-style: none; padding: 0; margin: 8px 0; }
+#lobby li { margin: 2px 0; }
+#lobby .dim, .dim { color: #a99a82; }
+button:disabled { opacity: 0.5; cursor: default; }

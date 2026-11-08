@@ -6,7 +6,7 @@
 // resists it) and knocking back anyone nearby.
 (function () {
   'use strict';
-  const SW = window.SW;
+  const SW = globalThis.SW;
   const { EMPTY, WALL, SAND, MUD, WATER, AIR } = SW.T;
 
   SW.SHOT_SPEED = 5.2;           // sand clump launch speed (uses particle gravity SW.PG)
@@ -82,11 +82,11 @@
   // ---------------------------------------------------------------- shots --
 
   class Shots {
-    constructor() { this.list = []; this.booms = []; }
+    constructor() { this.list = []; this.booms = []; this.nextId = 1; }
     reset() { this.list.length = 0; this.booms.length = 0; }
 
     spawn(kind, x, y, vx, vy, owner) {
-      this.list.push({ kind, x, y, vx, vy, owner, age: 0, spin: Math.random() * 6 });
+      this.list.push({ id: this.nextId++, kind, x, y, vx, vy, owner, age: 0, spin: Math.random() * 6 });
     }
 
     update(game) {

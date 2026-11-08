@@ -1,33 +1,28 @@
-// Game setup, loop and match flow.
+// Browser game shell: menu, single-player loop and hand-off to online play.
+// Single player is entirely local (src/match.js) and never touches the
+// network. Online play lives in src/net.js, which is only loaded when the
+// player picks "Play online", so a missing server can't break single player.
 (function () {
   'use strict';
   const SW = window.SW;
-  const { WALL, SAND } = SW.T;
 
-  const GW = 320, GH = 180, SCALE = 4;
+  const SCALE = 4;
   const STEP = 1000 / 60;
-  const STORM_AT = 90 * 60;
-  const COLORS = ['#3d7be0', '#e0503d', '#3daf5a', '#a54de0'];
-  const BOT_NAMES = ['Dusty', 'Dune', 'Grit'];
 
   class Game {
     constructor() {
       this.canvas = document.getElementById('game');
-      this.canvas.width = GW * SCALE;
-      this.canvas.height = GH * SCALE;
-      this.renderer = new SW.Renderer(this.canvas, GW, GH, SCALE);
-      this.input = new SW.Input(this.canvas, GW, GH);
-      this.grid = new SW.Grid(GW, GH);
-      this.particles = new SW.Particles(6000);
-      this.shots = new SW.Shots();
-      this.chars = [];
+      this.canvas.width = SW.GW * SCALE;
+      this.canvas.height = SW.GH * SCALE;
+      this.renderer = new SW.Renderer(this.canvas, SW.GW, SW.GH, SCALE);
+      this.input = new SW.Input(this.canvas, SW.GW, SW.GH);
+      this.match = null;
       this.player = null;
-      this.toasts = [];
-      this.frame = 0;
       this.state = 'menu';
       this.botCount = 2;
-      this.overAt = 0;
       this.paused = false;
+      this.demo = true;
+      this.net = null;       // online client, created on demand
 
       this.menuEl = document.getElementById('menu');
       this.overEl = document.getElementById('over');
@@ -42,11 +37,16 @@
         });
       });
       document.getElementById('start').addEventListener('click', (e) => { e.target.blur(); this.start(); });
-      document.getElementById('again').addEventListener('click', (e) => { e.target.blur(); this.start(); });
+      document.getElementById('again').addEventListener('click', (e) => {
+        e.target.blur();
+        if (this.net && this.net.active) this.net.rematch(); else this.start();
+      });
       document.getElementById('to-menu').addEventListener('click', (e) => { e.target.blur(); this.showMenu(); });
+      document.getElementById('online-btn').addEventListener('click', (e) => { e.target.blur(); this.openOnline(); });
 
       this.input.onKey = (code) => {
-        if (code === 'Enter' && this.state === 'menu') this.start();
+        if (this.net && this.net.active) { this.net.onKey(code); return; }
+        if (code === 'Enter' && this.state === 'menu' && !this.onlinePanelOpen()) this.start();
         else if (code === 'KeyR' && this.state !== 'menu') this.start();
         else if (code === 'Escape' && this.state !== 'menu') this.showMenu();
         else if (code === 'KeyP' && this.state === 'playing') this.paused = !this.paused;
@@ -56,9 +56,27 @@
       this.last = performance.now();
       this.acc = 0;
       requestAnimationFrame((t) => this.loop(t));
+
+      const room = new URLSearchParams(location.search).get('room');
+      if (room) this.openOnline(room);
+    }
+
+    // The renderer and older tooling read these straight off the game.
+    get grid() { return this.match.grid; }
+    get particles() { return this.match.particles; }
+    get shots() { return this.match.shots; }
+    get chars() { return this.match.chars; }
+    get toasts() { return this.match.toasts; }
+    get frame() { return this.match.frame; }
+    set frame(v) { this.match.frame = v; }
+
+    onlinePanelOpen() {
+      const el = document.getElementById('online');
+      return el && !el.classList.contains('hidden');
     }
 
     showMenu() {
+      if (this.net) this.net.leave();
       this.state = 'menu';
       this.overEl.classList.add('hidden');
       this.menuEl.classList.remove('hidden');
@@ -66,6 +84,7 @@
     }
 
     start() {
+      if (this.net) this.net.leave();
       this.menuEl.classList.add('hidden');
       this.overEl.classList.add('hidden');
       this.state = 'playing';
@@ -74,120 +93,74 @@
     }
 
     newMatch(nBots, demo) {
-      this.grid = new SW.Grid(GW, GH);
-      this.particles.reset();
-      this.shots.reset();
-      this.toasts = [];
-      this.frame = 0;
-      this.buildArena();
-      this.chars = [];
-      this.player = null;
-      let id = 0;
-      if (!demo) {
-        this.player = new SW.Character(id++, 'You', COLORS[0], 90, 30, false);
-        this.chars.push(this.player);
-      }
-      const spots = demo
-        ? [[40], [150], [270]]
-        : nBots === 1 ? [[250]] : nBots === 2 ? [[190], [275]] : [[40], [200], [275]];
-      for (let k = 0; k < nBots; k++) {
-        const c = new SW.Character(id++, BOT_NAMES[k], COLORS[k + 1], spots[k][0], 30, true);
-        c.brain = new SW.BotBrain(c, 0.5 + Math.random() * 0.4);
-        this.chars.push(c);
-      }
       this.demo = demo;
+      this.match = demo
+        ? new SW.Match({ humans: [], bots: 3, demo: true })
+        : new SW.Match({ humans: [{ name: 'You' }], bots: nBots });
+      this.match.onDeathHook = (c) => this.onDeath(c);
+      this.player = demo ? null : this.match.chars[0];
+      this.overShown = false;
     }
 
-    buildArena() {
-      const g = this.grid;
-      for (let y = 0; y < GH; y++) {
-        for (let x = 0; x < GW; x++) {
-          if (x < 2 || x >= GW - 2 || y < 2 || y >= GH - 3) g.setCell(x, y, WALL);
-        }
-      }
-      // Rolling starting dunes.
-      const p1 = Math.random() * 6, p2 = Math.random() * 6;
-      for (let x = 2; x < GW - 2; x++) {
-        const h = Math.round(16 + 6 * Math.sin(x * 0.03 + p1) + 3 * Math.sin(x * 0.085 + p2));
-        for (let y = GH - 3 - h; y < GH - 3; y++) g.setCell(x, y, SAND);
-      }
-      // Stone ledges and a central pillar.
-      const rect = (x0, y0, x1, y1) => {
-        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) g.setCell(x, y, WALL);
-      };
-      rect(22, 112, 66, 116);
-      rect(GW - 66, 112, GW - 22, 116);
-      rect(152, 128, 168, GH - 3);
-      rect(120, 86, 200, 89);
-      // Let the dunes settle a little so they look natural from frame one.
-      for (let k = 0; k < 40; k++) g.update();
-    }
+    onDeath() {}
 
-    // After STORM_AT the sky starts raining sand, slowly filling the arena so
-    // every match eventually ends.
-    sandstorm() {
-      const t = this.frame - STORM_AT;
-      if (t === 0) this.toasts.push({ text: 'Sandstorm incoming!', life: 200 });
-      if (t < 0) return;
-      const rate = Math.min(8, 0.5 + t / 600);
-      let n = Math.floor(rate) + (Math.random() < rate % 1 ? 1 : 0);
-      while (n--) {
-        this.particles.spawn(3 + Math.random() * (GW - 6), 2.5, (Math.random() - 0.3) * 0.6, 0.5 + Math.random(), SAND, -1);
-      }
-    }
-
-    onDeath(c) {
-      this.toasts.push({ text: c === this.player ? 'You were buried!' : `${c.name} was buried!`, life: 180 });
+    newMatchIfDemoOver() {
+      const m = this.match;
+      if (m.over && m.frame - m.overAt > 240) this.newMatch(3, true);
     }
 
     step() {
-      this.frame++;
-      for (const c of this.chars) {
-        const inp = c.isBot ? c.brain.getInput(this) : this.state === 'playing'
-          ? this.input.playerInput(c) : { move: 0, jump: false, fire: false, aim: c.aim };
-        c.update(this, inp);
-      }
-      for (const c of this.chars) SW.fire(this, c);
-      this.shots.update(this);
-      this.sandstorm();
-      this.particles.update(this);
-      this.grid.stampBodies(this.chars);
-      this.grid.update();
-      this.grid.unstampBodies(this.chars);
-      for (const t of this.toasts) t.life--;
-      this.toasts = this.toasts.filter((t) => t.life > 0);
+      this.match.step((c) => (this.state === 'playing' && c === this.player
+        ? this.input.playerInput(c)
+        : { move: 0, jump: false, fire: false, aim: c.aim }));
       this.checkEnd();
     }
 
     checkEnd() {
-      if (this.demo) {
-        const alive = this.chars.filter((c) => c.alive).length;
-        if (alive <= 1) {
-          if (!this.overAt) this.overAt = this.frame;
-          else if (this.frame - this.overAt > 240) { this.overAt = 0; this.newMatch(3, true); }
-        }
-        return;
-      }
-      if (this.state !== 'playing') {
-        if (this.state === 'over' && this.frame - this.overAt > 60) this.overEl.classList.remove('hidden');
-        return;
-      }
-      const botsAlive = this.chars.some((c) => c.isBot && c.alive);
-      if (!this.player.alive || !botsAlive) {
+      const m = this.match;
+      if (this.demo) { this.newMatchIfDemoOver(); return; }
+      if (this.state === 'playing' && m.over) {
         this.state = 'over';
-        this.overAt = this.frame;
         const win = this.player.alive;
         this.overTitle.textContent = win ? 'Victory!' : 'Buried!';
         this.overSub.textContent = win
-          ? `You sank every bot in ${Math.round(this.frame / 60)} seconds.`
+          ? `You sank every bot in ${Math.round(m.frame / 60)} seconds.`
           : 'You ran out of air under the sand.';
+        this.setOverButtons(true);
       }
+      if (this.state === 'over' && !this.overShown && m.frame - m.overAt > 60) {
+        this.overShown = true;
+        this.overEl.classList.remove('hidden');
+      }
+    }
+
+    setOverButtons(canRestart, label) {
+      const again = document.getElementById('again');
+      again.disabled = !canRestart;
+      again.textContent = label || 'Play again (R)';
+    }
+
+    openOnline(room) {
+      const ready = SW.NetClient ? Promise.resolve()
+        : loadScript('src/protocol.js').then(() => loadScript('src/net.js'));
+      ready.then(() => {
+        if (!this.net) this.net = new SW.NetClient(this);
+        this.net.openPanel(room);
+      }).catch(() => {
+        document.getElementById('online-status').textContent = 'Online play could not be loaded. Play vs bots instead.';
+      });
     }
 
     loop(t) {
       let dt = t - this.last;
       this.last = t;
       if (dt > 250) dt = 250;
+      if (this.net && this.net.active) {
+        this.net.frame(t);
+        this.renderer.draw(this.net.view);
+        requestAnimationFrame((tt) => this.loop(tt));
+        return;
+      }
       if (!this.paused) {
         this.acc += dt;
         let n = 0;
@@ -206,6 +179,16 @@
       }
       requestAnimationFrame((tt) => this.loop(tt));
     }
+  }
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
   }
 
   window.addEventListener('load', () => { window.game = new Game(); });

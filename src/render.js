@@ -315,11 +315,16 @@
       }
 
       // Alive counter.
-      const bots = game.chars.filter((c) => c.isBot);
       ctx.textAlign = 'right';
       ctx.font = 'bold 16px monospace';
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      const label = `Bots left: ${bots.filter((b) => b.alive).length}/${bots.length}`;
+      let label;
+      if (game.online) {
+        label = `Standing: ${game.chars.filter((c) => c.alive).length}/${game.chars.length}`;
+      } else {
+        const bots = game.chars.filter((c) => c.isBot);
+        label = `Bots left: ${bots.filter((b) => b.alive).length}/${bots.length}`;
+      }
       ctx.fillText(label, this.canvas.width - 15, 31);
       ctx.fillStyle = '#fff';
       ctx.fillText(label, this.canvas.width - 16, 30);
