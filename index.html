@@ -21,6 +21,34 @@
           <button data-bots="3">3</button>
         </div>
         <button id="start" class="big">Start (Enter)</button>
+        <button id="online-btn">Play online</button>
+        <div id="online-status" class="status"></div>
+        <div id="online" class="hidden">
+          <div class="row">
+            <span>Name:</span>
+            <input id="net-name" maxlength="10" value="Player">
+          </div>
+          <div class="row">
+            <button id="net-create">Create room</button>
+            <span>or</span>
+            <input id="net-code" maxlength="4" placeholder="CODE">
+            <button id="net-join">Join</button>
+          </div>
+          <div id="lobby" class="hidden">
+            <div>Room <b id="lobby-code"></b> &nbsp; <span class="dim" id="lobby-link"></span></div>
+            <ul id="lobby-players"></ul>
+            <div class="row" id="lobby-host">
+              <span>Bots:</span>
+              <button data-netbots="0">0</button>
+              <button data-netbots="1" class="sel">1</button>
+              <button data-netbots="2">2</button>
+              <button data-netbots="3">3</button>
+              <button id="lobby-start" class="big">Start match</button>
+            </div>
+            <div id="lobby-wait" class="dim hidden">Waiting for the host to start...</div>
+            <button id="lobby-leave">Leave room</button>
+          </div>
+        </div>
         <div class="help">
           <div><b>A / D</b> move &nbsp; <b>W / Space</b> jump</div>
           <div><b>Mouse</b> aim &nbsp; <b>Left click</b> fire (hold for water)</div>
@@ -51,6 +79,7 @@
   <script src="src/elements.js"></script>
   <script src="src/character.js"></script>
   <script src="src/bot.js"></script>
+  <script src="src/match.js"></script>
   <script src="src/input.js"></script>
   <script src="src/render.js"></script>
   <script src="src/main.js"></script>

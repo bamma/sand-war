@@ -1,7 +1,7 @@
 // Bot AI: picks a target, chooses an element, aims ballistically, digs out when buried.
 (function () {
   'use strict';
-  const SW = window.SW;
+  const SW = globalThis.SW;
   const { SAND, MUD } = SW.T;
 
   class BotBrain {

@@ -47,6 +47,42 @@ The water stream gives a gentle push that slows your fall. On the ground your fe
 - When sand covers your head and surrounds it, a breath bar appears. If it runs out (about 3 s), you're **out**. Jump repeatedly or use wind to dig out. Digging out of mud is much harder.
 - After 90 s a **sandstorm** starts raining sand from the sky. It gets heavier until the arena fills, so every match ends.
 
+## Online multiplayer (prototype)
+
+Play against friends (up to 4 fighters per match, bots fill empty slots) on a small Node.js server. The server runs the real simulation and streams it to every player, so everyone sees the same dunes.
+
+**Single player never needs the server.** Online code only loads when you click **Play online**. If the server is down or unreachable, you get a "play vs bots instead" message, and single player keeps working.
+
+### Run it locally
+
+```bash
+cd server
+npm install
+npm start
+```
+
+Then open http://localhost:8080. The server serves the game page too.
+1. Enter a name and click **Create room** to get a 4-letter code.
+2. Friends on the same network open `http://<your-ip>:8080/?room=CODE`, or click **Play online** and type the code.
+3. The host picks the number of bots and clicks **Start match**. After the match, the host can start a rematch.
+
+### Which server the page uses
+
+| How the page is opened | Server used |
+|---|---|
+| With `?server=wss://host` in the URL | That server |
+| Served over http(s) by the game server | The same host |
+| From GitHub Pages or as a local file | `SW.ONLINE_SERVER` in `src/net.js`, empty until a server is deployed |
+
+### Current limits
+
+This is phases 1–2 of the plan: a working online prototype.
+- Snapshots go out 30 times a second. The sand grid is sent as changes only, about 35 KB/s per player before WebSocket compression.
+- Other players are interpolated, but your own character isn't predicted yet, so you feel your round-trip lag.
+- Next steps: client-side prediction, smarter compression, then deploying the server.
+
+`cd server && npm test` runs a headless bot match in Node and checks that snapshots rebuild the exact grid.
+
 ## Code layout
 
 | File | Purpose |
@@ -58,6 +94,11 @@ The water stream gives a gentle push that slows your fall. On the ground your fe
 | `src/bot.js` | Bot AI: targeting, element choice, ballistic aim, digging out |
 | `src/input.js` | Keyboard and mouse |
 | `src/render.js` | Pixel rendering of the world, characters and HUD |
-| `src/main.js` | Arena setup, game loop, sandstorm, match flow |
+| `src/match.js` | One match: arena, sandstorm, win condition (shared by browser and server) |
+| `src/main.js` | Browser shell: menu, single-player loop, hand-off to online play |
+| `src/protocol.js` | Binary snapshot format (full grid or changed cells) |
+| `src/net.js` | Online client: rooms/lobby, sending input, drawing server snapshots (loaded on demand) |
+| `server/index.js` | Node server: serves the page, rooms with join codes, authoritative 60 Hz simulation |
+| `server/headless-test.js` | Headless bot match and snapshot round-trip check |
 
 The simulation runs on a 320×180 grid, drawn at 4× scale, with a fixed 60 Hz timestep.

@@ -2,7 +2,7 @@
 // When a material particle lands it is written back into the grid.
 (function () {
   'use strict';
-  const SW = window.SW;
+  const SW = globalThis.SW;
   const { EMPTY, WALL, SAND, MUD, WATER, AIR } = SW.T;
 
   SW.PG = 0.15;          // particle gravity (cells / frame^2)
