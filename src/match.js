@@ -5,7 +5,7 @@
 (function () {
   'use strict';
   const SW = globalThis.SW;
-  const { WALL, SAND } = SW.T;
+  const { SAND } = SW.T;
 
   const GW = 320, GH = 180;
   const STORM_AT = 90 * 60;
@@ -19,8 +19,11 @@
   class Match {
     // opts.humans: [{ name, color? }] (array order = character ids 0..)
     // opts.bots:   number of bots to add after the humans
-    // opts.demo:   menu-background match (bots only, fixed spots)
+    // opts.map:    map id from src/maps.js (default 'classic')
     constructor(opts) {
+      this.map = SW.mapById(opts.map);
+      this.mapId = this.map.id;
+      this.mapName = this.map.name;
       this.grid = new SW.Grid(GW, GH);
       this.particles = new SW.Particles(6000);
       this.shots = new SW.Shots();
@@ -35,42 +38,23 @@
 
       const humans = opts.humans || [];
       const nBots = Math.max(0, Math.min(SW.MAX_FIGHTERS - humans.length, opts.bots | 0));
-      const spots = spawnSpots(humans.length, nBots, !!opts.demo);
+      const spots = this.map.spawns;
       let id = 0;
       humans.forEach((h, k) => {
-        this.chars.push(new SW.Character(id++, h.name, h.color || COLORS[k % COLORS.length], spots[id - 1], 30, false));
+        const sp = spots[id % spots.length];
+        this.chars.push(new SW.Character(id++, h.name, h.color || COLORS[k % COLORS.length], sp.x, sp.y, false));
       });
       for (let k = 0; k < nBots; k++) {
         const color = COLORS[(humans.length + k) % COLORS.length];
-        const c = new SW.Character(id++, BOT_NAMES[k], color, spots[id - 1], 30, true);
+        const sp = spots[id % spots.length];
+        const c = new SW.Character(id++, BOT_NAMES[k], color, sp.x, sp.y, true);
         c.brain = new SW.BotBrain(c, 0.5 + Math.random() * 0.4);
         this.chars.push(c);
       }
     }
 
     buildArena() {
-      const g = this.grid;
-      for (let y = 0; y < GH; y++) {
-        for (let x = 0; x < GW; x++) {
-          if (x < 2 || x >= GW - 2 || y < 2 || y >= GH - 3) g.setCell(x, y, WALL);
-        }
-      }
-      // Rolling starting dunes.
-      const p1 = Math.random() * 6, p2 = Math.random() * 6;
-      for (let x = 2; x < GW - 2; x++) {
-        const h = Math.round(16 + 6 * Math.sin(x * 0.03 + p1) + 3 * Math.sin(x * 0.085 + p2));
-        for (let y = GH - 3 - h; y < GH - 3; y++) g.setCell(x, y, SAND);
-      }
-      // Stone ledges and a central pillar.
-      const rect = (x0, y0, x1, y1) => {
-        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) g.setCell(x, y, WALL);
-      };
-      rect(22, 112, 66, 116);
-      rect(GW - 66, 112, GW - 22, 116);
-      rect(152, 128, 168, GH - 3);
-      rect(120, 86, 200, 89);
-      // Let the dunes settle a little so they look natural from frame one.
-      for (let k = 0; k < 40; k++) g.update();
+      SW.buildMap(this.grid, this.map);
     }
 
     // After STORM_AT the sky starts raining sand, slowly filling the arena so
@@ -123,19 +107,6 @@
         this.winner = alive.length === 1 ? alive[0] : null;
       }
     }
-  }
-
-  // Spawn x positions. Single player and the menu demo keep their original
-  // spots; online matches spread fighters evenly.
-  function spawnSpots(nHumans, nBots, demo) {
-    if (demo) return [40, 150, 270];
-    if (nHumans === 1) {
-      const bots = nBots === 1 ? [250] : nBots === 2 ? [190, 275] : [40, 200, 275];
-      return [90].concat(bots);
-    }
-    const n = nHumans + nBots, out = [];
-    for (let k = 0; k < n; k++) out.push(Math.round(30 + (k * (GW - 66)) / Math.max(1, n - 1)));
-    return out;
   }
 
   SW.Match = Match;

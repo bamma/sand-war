@@ -60,6 +60,22 @@ The water stream gives a gentle push that slows your fall. On the ground your fe
 - When sand covers your head and surrounds it, a breath bar appears. If it runs out (about 3 s), you're **out**. Jump repeatedly or use wind to dig out. Digging out of mud is much harder.
 - After 90 s a **sandstorm** starts raining sand from the sky. It gets heavier until the arena fills, so every match ends.
 
+## Maps
+
+Pick a map on the menu, or choose **Random** to get a different one each match. Your choice is remembered. Online, the map changes every round.
+
+| Map | What's special |
+|---|---|
+| **Dunes** | The original arena: rolling dunes, two side ledges, a top platform and a stone pillar |
+| **Open Desert** | No stone at all, just big rolling dunes |
+| **Three Ledges** | No centre pillar. Three flat platforms, with the middle one higher. |
+| **Canyon** | Stone cliffs on both sides with a deep sand pit between them. Fall in and you'll need a rocket jump to get out. |
+| **Oasis** | A stone pool of water in the middle, ringed with sticky mud that lasts about 100 s. Sand shots and wind blasts slowly fill or empty the pool. |
+| **Twin Towers** | Two tall stone towers over a low sand floor. Halfway ledges and rocket jumps get you to the tops. |
+| **Hourglass** | Two stone funnels hang overhead. Sand landing in them, including the sandstorm, drains as streams onto the fighters below. |
+
+Maps are defined in `src/maps.js`. Each one is a short `build()` function plus 4 spawn points.
+
 ## Online multiplayer (prototype)
 
 Play against friends (up to 4 fighters per match, bots fill empty slots) on a small Node.js server. The server runs the real simulation and streams it to every player, so everyone sees the same dunes.
@@ -95,6 +111,7 @@ Then open http://localhost:8080. The server serves the game page too.
 | `PORT` | `8080` | Port for the page and WebSocket |
 | `FILL_BOTS` | off | "Fill room with bots": `1` adds bots to fill every round up to 4 fighters. When off, bots only play against a player who is alone. |
 | `WINS_TO_WIN` | `3` | Round wins needed to take the series |
+| `MAPS` | all maps | Comma-separated map rotation, e.g. `MAPS=classic,canyon,hourglass`. Map ids: `classic`, `open`, `ledges`, `canyon`, `oasis`, `towers`, `hourglass`. |
 
 ```bash
 FILL_BOTS=1 WINS_TO_WIN=3 npm start
@@ -129,7 +146,8 @@ This is phases 1–2 of the plan: a working online prototype.
 | `src/input.js` | Keyboard and mouse |
 | `src/touch.js` | Touch controls: twin floating sticks, element and pause buttons |
 | `src/render.js` | Pixel rendering of the world, characters and HUD |
-| `src/match.js` | One match: arena, sandstorm, win condition (shared by browser and server) |
+| `src/maps.js` | The arena layouts and their spawn points |
+| `src/match.js` | One match: builds the chosen map, runs the sandstorm, decides the winner (shared by browser and server) |
 | `src/main.js` | Browser shell: menu, single-player loop, hand-off to online play |
 | `src/protocol.js` | Binary snapshot format (full grid or changed cells) |
 | `src/net.js` | Online client: rooms/lobby, sending input, drawing server snapshots (loaded on demand) |

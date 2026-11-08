@@ -20,6 +20,7 @@
       this.player = null;
       this.state = 'menu';
       this.botCount = 2;
+      this.mapChoice = loadPref('sandwar-map', 'random');   // a map id or 'random'
       this.paused = false;
       this.demo = true;
       this.net = null;       // online client, created on demand
@@ -36,6 +37,7 @@
           b.blur();
         });
       });
+      this.buildMapButtons();
       document.getElementById('start').addEventListener('click', (e) => { e.target.blur(); this.start(); });
       document.getElementById('again').addEventListener('click', (e) => {
         e.target.blur();
@@ -94,11 +96,34 @@
       this.newMatch(this.botCount, false);
     }
 
+    // Map selector on the menu: one button per map plus Random.
+    buildMapButtons() {
+      const row = document.getElementById('map-row');
+      const choices = SW.MAPS.map((m) => [m.id, m.name]).concat([['random', 'Random']]);
+      if (!choices.some(([id]) => id === this.mapChoice)) this.mapChoice = 'random';
+      for (const [id, name] of choices) {
+        const b = document.createElement('button');
+        b.dataset.map = id;
+        b.textContent = name;
+        b.classList.toggle('sel', id === this.mapChoice);
+        b.addEventListener('click', () => {
+          this.mapChoice = id;
+          savePref('sandwar-map', id);
+          row.querySelectorAll('button').forEach((o) => o.classList.toggle('sel', o === b));
+          b.blur();
+        });
+        row.appendChild(b);
+      }
+    }
+
+    get mapName() { return this.match.mapName; }
+
     newMatch(nBots, demo) {
       this.demo = demo;
+      const map = demo || this.mapChoice === 'random' ? SW.randomMapId() : this.mapChoice;
       this.match = demo
-        ? new SW.Match({ humans: [], bots: 3, demo: true })
-        : new SW.Match({ humans: [{ name: 'You' }], bots: nBots });
+        ? new SW.Match({ humans: [], bots: 3, map })
+        : new SW.Match({ humans: [{ name: 'You' }], bots: nBots, map });
       this.match.onDeathHook = (c) => this.onDeath(c);
       this.player = demo ? null : this.match.chars[0];
       this.overShown = false;
@@ -183,6 +208,14 @@
       }
       requestAnimationFrame((tt) => this.loop(tt));
     }
+  }
+
+  // localStorage can throw (private mode, blocked storage); never let it break the game.
+  function loadPref(key, fallback) {
+    try { return localStorage.getItem(key) || fallback; } catch (e) { return fallback; }
+  }
+  function savePref(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* ignore */ }
   }
 
   function loadScript(src) {

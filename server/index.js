@@ -5,7 +5,7 @@
 // It also serves the game page, so `npm start` + http://localhost:8080 is a
 // complete local setup.
 //
-//   PORT=8080 FILL_BOTS=1 WINS_TO_WIN=3 node server/index.js
+//   PORT=8080 FILL_BOTS=1 WINS_TO_WIN=3 MAPS=classic,canyon node server/index.js
 'use strict';
 
 const http = require('http');
@@ -14,7 +14,7 @@ const path = require('path');
 const { WebSocketServer } = require('ws');
 
 const ROOT = path.resolve(__dirname, '..');
-for (const f of ['grid', 'particles', 'elements', 'character', 'bot', 'match', 'protocol']) {
+for (const f of ['grid', 'particles', 'elements', 'character', 'bot', 'maps', 'match', 'protocol']) {
   require(path.join(ROOT, 'src', f + '.js'));
 }
 const SW = globalThis.SW;
@@ -25,6 +25,8 @@ const { Room } = require('./room');
 const PORT = +process.env.PORT || 8080;
 const FILL_BOTS = /^(1|true|yes|on)$/i.test(process.env.FILL_BOTS || '');  // "fill room with bots"
 const WINS_TO_WIN = Math.max(1, +process.env.WINS_TO_WIN || 3);
+// MAPS=classic,canyon limits the map rotation (default: every map).
+const MAPS = String(process.env.MAPS || '').split(',').map((s) => s.trim()).filter((id) => SW.MAP_IDS.includes(id));
 const MAX_IN_ROOM = 8;             // 4 fighters, the rest watch
 const STEP_MS = 1000 / 60;
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ';
@@ -73,7 +75,7 @@ function deliver(client, data, droppable) {
 }
 
 function makeRoom() {
-  const r = new Room(newCode(), { fillBots: FILL_BOTS, winsToWin: WINS_TO_WIN, send: deliver });
+  const r = new Room(newCode(), { fillBots: FILL_BOTS, winsToWin: WINS_TO_WIN, maps: MAPS, send: deliver });
   rooms.set(r.code, r);
   return r;
 }
@@ -162,7 +164,7 @@ setInterval(() => {
 
 server.listen(PORT, () => {
   console.log(`Sand War server on http://localhost:${PORT}  (WebSocket on the same port)`);
-  console.log(`Settings: fill room with bots ${FILL_BOTS ? 'ON' : 'off'}, first to ${WINS_TO_WIN} wins`);
+  console.log(`Settings: fill room with bots ${FILL_BOTS ? 'ON' : 'off'}, first to ${WINS_TO_WIN} wins, maps: ${(MAPS.length ? MAPS : SW.MAP_IDS).join(', ')}`);
 });
 
 module.exports = { server, rooms };
