@@ -15,6 +15,19 @@ Open `index.html` in a browser (double-clicking works; no build or server needed
 | 1 / 2 / 3, Q / E, mouse wheel | Switch element |
 | R | Restart · **P** pause · **Esc** menu |
 
+### On a phone or tablet
+
+Touch controls appear automatically. Play with the phone sideways (landscape).
+
+| Touch | Action |
+|---|---|
+| Left half: drag | Move (push up to jump) |
+| Right half: drag | Aim; fires while the stick is pushed out (hold for water) |
+| Sand / Water / Wind buttons | Switch element |
+| II / ☰ (top) | Pause / menu |
+
+Where the browser allows it, starting a match also goes fullscreen and locks landscape.
+
 ## Elements
 
 Each element has its own ammo meter that refills over time. Sand holds 4 clumps (one bar segment each). Wind holds a **single** blast that takes 5 s to recharge, so you only get one emergency escape at a time.
@@ -93,6 +106,7 @@ This is phases 1–2 of the plan: a working online prototype.
 | `src/character.js` | Character movement through sand, sinking, burial and breath |
 | `src/bot.js` | Bot AI: targeting, element choice, ballistic aim, digging out |
 | `src/input.js` | Keyboard and mouse |
+| `src/touch.js` | Touch controls: twin floating sticks, element and pause buttons |
 | `src/render.js` | Pixel rendering of the world, characters and HUD |
 | `src/match.js` | One match: arena, sandstorm, win condition (shared by browser and server) |
 | `src/main.js` | Browser shell: menu, single-player loop, hand-off to online play |

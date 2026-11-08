@@ -99,3 +99,115 @@ input {
 #lobby li { margin: 2px 0; }
 #lobby .dim, .dim { color: #a99a82; }
 button:disabled { opacity: 0.5; cursor: default; }
+
+/* ---------- Mobile / touch ---------- */
+
+html, body { height: 100dvh; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+#wrap { width: min(100vw, calc(100dvh * 16 / 9)); }
+button { touch-action: manipulation; }
+input { font-size: 16px; } /* stops iOS zooming into the field */
+
+.touch-only { display: none; }
+body.touch .touch-only { display: block; }
+body.touch span.touch-only { display: inline; }
+body.touch .kbd-only { display: none; }
+body.touch #game { cursor: default; }
+
+/* Menus must fit a phone held sideways (~360px tall). */
+.panel { max-height: calc(100% - 12px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+@media (max-height: 520px), (max-width: 640px) {
+  .panel { padding: 12px 18px; max-width: 94%; }
+  h1 { font-size: 30px; letter-spacing: 4px; }
+  .tag { margin-bottom: 10px; font-size: 13px; }
+  .row { margin-bottom: 8px; flex-wrap: wrap; }
+  .help { margin-top: 8px; font-size: 12px; line-height: 1.5; }
+  button.big { font-size: 17px; padding: 8px 20px; }
+}
+
+#touch {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+#touch.hidden { display: none; }
+
+#touch .stick {
+  position: absolute;
+  width: 112px;
+  height: 112px;
+  margin: -56px 0 0 -56px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 236, 200, 0.45);
+  background: rgba(30, 22, 14, 0.25);
+  display: none;
+  pointer-events: none;
+}
+#touch .stick.on { display: block; }
+#touch .knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  border-radius: 50%;
+  background: rgba(243, 207, 134, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+}
+#touch .stick.aim .knob { background: rgba(255, 140, 90, 0.55); }
+
+#touch .hint {
+  position: absolute;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  font-size: 12px;
+  color: rgba(255, 236, 200, 0.45);
+  pointer-events: none;
+}
+#touch .hint.move { left: calc(24px + env(safe-area-inset-left)); }
+#touch .hint.aim { right: calc(24px + env(safe-area-inset-right)); }
+
+#touch button {
+  background: rgba(30, 22, 14, 0.55);
+  color: #f3e6cc;
+  border: 2px solid rgba(232, 194, 122, 0.6);
+  padding: 0;
+  touch-action: none;
+}
+#touch button.sel { background: rgba(243, 207, 134, 0.85); color: #2a1d0f; border-color: #fff; }
+#touch .tbar {
+  position: absolute;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+}
+#touch .tbar button { width: 44px; height: 36px; font-size: 16px; }
+#touch .weapons {
+  position: absolute;
+  right: calc(12px + env(safe-area-inset-right));
+  top: calc(52px + env(safe-area-inset-top));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#touch .weapons button { width: 72px; height: 44px; font-size: 14px; }
+#touch .weapons .w-sand { box-shadow: inset 0 -4px 0 #e8c27a; }
+#touch .weapons .w-water { box-shadow: inset 0 -4px 0 #4f8fe8; }
+#touch .weapons .w-wind { box-shadow: inset 0 -4px 0 #d8f1ff; }
+
+#rotate {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  text-align: center;
+  font-size: 14px;
+  color: #e9dcc4;
+  pointer-events: none;
+}
+@media (orientation: landscape) { body.touch #rotate { display: none; } }

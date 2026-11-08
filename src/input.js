@@ -1,4 +1,4 @@
-// Keyboard + mouse input for the human player.
+// Keyboard + mouse input for the human player (touch is merged in from src/touch.js).
 (function () {
   'use strict';
   const SW = window.SW;
@@ -11,6 +11,8 @@
       this.keys = new Set();
       this.mouse = { x: gw * 0.75, y: gh * 0.5, down: false, inside: false };
       this.weaponSel = 0;
+      // Written by SW.TouchControls. active = touch was the last aiming device.
+      this.touch = { active: false, move: 0, jump: false, fire: false, angle: null };
       this.onKey = null; // hook for game-level keys (R, Esc, Enter)
 
       window.addEventListener('keydown', (e) => {
@@ -31,7 +33,7 @@
         this.mouse.x = ((e.clientX - r.left) / r.width) * gw;
         this.mouse.y = ((e.clientY - r.top) / r.height) * gh;
       };
-      canvas.addEventListener('mousemove', (e) => { pos(e); this.mouse.inside = true; });
+      canvas.addEventListener('mousemove', (e) => { pos(e); this.mouse.inside = true; this.touch.active = false; });
       canvas.addEventListener('mouseleave', () => { this.mouse.inside = false; });
       canvas.addEventListener('mousedown', (e) => { pos(e); if (e.button === 0) this.mouse.down = true; });
       window.addEventListener('mouseup', (e) => { if (e.button === 0) this.mouse.down = false; });
@@ -48,11 +50,24 @@
       const k = this.keys;
       const left = k.has('KeyA') || k.has('ArrowLeft');
       const right = k.has('KeyD') || k.has('ArrowRight');
+      const t = this.touch;
+      const cx = c.x + c.w / 2, cy = c.y + 5;
+      let aim;
+      if (t.active) {
+        aim = t.angle === null ? c.aim : t.angle;
+        // Park the crosshair a little way out along the aim so it still shows.
+        this.mouse.x = cx + Math.cos(aim) * 24;
+        this.mouse.y = cy + Math.sin(aim) * 24;
+        this.mouse.inside = true;
+      } else {
+        aim = Math.atan2(this.mouse.y - cy, this.mouse.x - cx);
+      }
+      const move = (right ? 1 : 0) - (left ? 1 : 0) + t.move;
       return {
-        move: (right ? 1 : 0) - (left ? 1 : 0),
-        jump: k.has('KeyW') || k.has('Space') || k.has('ArrowUp'),
-        fire: this.mouse.down,
-        aim: Math.atan2(this.mouse.y - (c.y + 5), this.mouse.x - (c.x + c.w / 2)),
+        move: Math.max(-1, Math.min(1, move)),
+        jump: k.has('KeyW') || k.has('Space') || k.has('ArrowUp') || t.jump,
+        fire: this.mouse.down || t.fire,
+        aim,
         weapon: this.weaponSel,
       };
     }

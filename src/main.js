@@ -52,6 +52,8 @@
         else if (code === 'KeyP' && this.state === 'playing') this.paused = !this.paused;
       };
 
+      if (SW.TouchControls) this.touch = new SW.TouchControls(this);
+
       this.newMatch(3, true);
       this.last = performance.now();
       this.acc = 0;
@@ -137,7 +139,9 @@
     setOverButtons(canRestart, label) {
       const again = document.getElementById('again');
       again.disabled = !canRestart;
-      again.textContent = label || 'Play again (R)';
+      let text = label || 'Play again (R)';
+      if (document.body.classList.contains('touch')) text = text.replace(' (R)', '');
+      again.textContent = text;
     }
 
     openOnline(room) {

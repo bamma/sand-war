@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1b1712">
   <title>Sand War</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -20,7 +24,7 @@
           <button data-bots="2" class="sel">2</button>
           <button data-bots="3">3</button>
         </div>
-        <button id="start" class="big">Start (Enter)</button>
+        <button id="start" class="big">Start<span class="kbd-only"> (Enter)</span></button>
         <button id="online-btn">Play online</button>
         <div id="online-status" class="status"></div>
         <div id="online" class="hidden">
@@ -50,16 +54,19 @@
           </div>
         </div>
         <div class="help">
-          <div><b>A / D</b> move &nbsp; <b>W / Space</b> jump</div>
-          <div><b>Mouse</b> aim &nbsp; <b>Left click</b> fire (hold for water)</div>
-          <div><b>1 2 3</b>, <b>Q / E</b> or <b>wheel</b> switch element</div>
+          <div class="kbd-only"><b>A / D</b> move &nbsp; <b>W / Space</b> jump</div>
+          <div class="kbd-only"><b>Mouse</b> aim &nbsp; <b>Left click</b> fire (hold for water)</div>
+          <div class="kbd-only"><b>1 2 3</b>, <b>Q / E</b> or <b>wheel</b> switch element</div>
+          <div class="touch-only"><b>Left thumb</b> drag to move, push up to jump</div>
+          <div class="touch-only"><b>Right thumb</b> drag to aim, fires while pushed (hold for water)</div>
+          <div class="touch-only">Tap <b>Sand / Water / Wind</b> to switch element</div>
           <div class="elements">
             <span class="sand">Sand</span> clumps bury and stun on a direct hit.
             <span class="water">Water</span> turns sand to sticky mud.
             <span class="wind">Wind</span> blasts explode dry dunes (not mud).
           </div>
           <div>If your head stays under sand you run out of air. Last one standing wins.</div>
-          <div class="dim"><b>R</b> restart &nbsp; <b>P</b> pause &nbsp; <b>Esc</b> menu</div>
+          <div class="dim kbd-only"><b>R</b> restart &nbsp; <b>P</b> pause &nbsp; <b>Esc</b> menu</div>
         </div>
       </div>
     </div>
@@ -68,11 +75,28 @@
       <div class="panel">
         <h1 id="over-title">Victory!</h1>
         <p id="over-sub" class="tag"></p>
-        <button id="again" class="big">Play again (R)</button>
-        <button id="to-menu">Menu (Esc)</button>
+        <button id="again" class="big">Play again<span class="kbd-only"> (R)</span></button>
+        <button id="to-menu">Menu<span class="kbd-only"> (Esc)</span></button>
       </div>
     </div>
   </div>
+
+  <div id="touch" class="hidden">
+    <div class="stick move"><div class="knob"></div></div>
+    <div class="stick aim"><div class="knob"></div></div>
+    <div class="hint move">move · jump ↑</div>
+    <div class="hint aim">aim · fire</div>
+    <div class="tbar top">
+      <button data-act="pause" aria-label="Pause">II</button>
+      <button data-act="menu" aria-label="Menu">☰</button>
+    </div>
+    <div class="weapons">
+      <button data-weapon="0" class="w-sand">Sand</button>
+      <button data-weapon="1" class="w-water">Water</button>
+      <button data-weapon="2" class="w-wind">Wind</button>
+    </div>
+  </div>
+  <div id="rotate" class="touch-only">Rotate your phone for a bigger arena ⟳</div>
 
   <script src="src/grid.js"></script>
   <script src="src/particles.js"></script>
@@ -81,6 +105,7 @@
   <script src="src/bot.js"></script>
   <script src="src/match.js"></script>
   <script src="src/input.js"></script>
+  <script src="src/touch.js"></script>
   <script src="src/render.js"></script>
   <script src="src/main.js"></script>
 </body>
